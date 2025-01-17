@@ -30,6 +30,7 @@
             <url>https://maven.pkg.github.com/${github.organization}/${project.artifactId}</url>
         </repository>
     </distributionManagement>
+
     <repositories>
         <repository>
             <id>central</id>
@@ -37,12 +38,13 @@
         </repository>
         <repository>
             <id>github</id>
-            <url>https://maven.pkg.github.com/${github.organization}</url>
+            <url>https://maven.pkg.github.com/${github.organization}/*</url>
             <snapshots>
                 <enabled>true</enabled>
             </snapshots>
         </repository>
     </repositories>
+
     <modules>
         <module>lego-data-service-model</module>
         <module>lego-data-service-rest</module>
