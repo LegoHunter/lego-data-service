@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.vattima.lego.inventory.service.impl.ItemInventoryServiceTest
--------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.725 s -- in com.vattima.lego.inventory.service.impl.ItemInventoryServiceTest
