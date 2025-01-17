@@ -9,7 +9,7 @@
         <relativePath/>
         <!-- lookup parent from repository -->
     </parent>
-    <groupId>com.vattima</groupId>
+    <groupId>net.lego</groupId>
     <artifactId>lego-data-service</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <name>LEGO :: Data Service Parent</name>
