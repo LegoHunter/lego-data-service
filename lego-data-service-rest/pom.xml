@@ -10,7 +10,6 @@
   <artifactId>lego-data-service-rest</artifactId>
 
   <name>LEGO :: Data Service REST</name>
-  <packaging>jar</packaging>
 
   <dependencies>
     <dependency>

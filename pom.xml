@@ -27,7 +27,7 @@
         <repository>
             <id>github</id>
             <name>GitHub Packages</name>
-            <url>https://maven.pkg.github.com/${github.organization}/${project.artifactId}</url>
+            <url>https://maven.pkg.github.com/${github.organization}/lego-data-service</url>
         </repository>
     </distributionManagement>
 
@@ -113,6 +113,9 @@
                 <configuration>
                     <failOnNoGitDirectory>false</failOnNoGitDirectory>
                 </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-deploy-plugin</artifactId>
             </plugin>
         </plugins>
     </build>
