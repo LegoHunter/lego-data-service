@@ -28,7 +28,7 @@ jobs:
         architecture: x64
         cache: maven
 
-    - name: mvn clean deploy
-      run: mvn --batch-mode --update-snapshots clean deploy
+    - name: mvn deploy
+      run: mvn --batch-mode --update-snapshots deploy
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
