@@ -1,0 +1,12 @@
+D:\dev\projects\lego-collection\lego-data-service\lego-data-service-impl\src\main\java\com\vattima\lego\inventory\service\api\ExternalInventoryService.java
+D:\dev\projects\lego-collection\lego-data-service\lego-data-service-impl\src\main\java\com\vattima\lego\inventory\service\api\InventoryService.java
+D:\dev\projects\lego-collection\lego-data-service\lego-data-service-impl\src\main\java\com\vattima\lego\inventory\service\bricklink\impl\BricklinkInventoryService.java
+D:\dev\projects\lego-collection\lego-data-service\lego-data-service-impl\src\main\java\com\vattima\lego\inventory\service\exception\CompletenessNotFoundException.java
+D:\dev\projects\lego-collection\lego-data-service\lego-data-service-impl\src\main\java\com\vattima\lego\inventory\service\exception\ConditionCodeNotFoundException.java
+D:\dev\projects\lego-collection\lego-data-service\lego-data-service-impl\src\main\java\com\vattima\lego\inventory\service\exception\ItemNumberNotFoundException.java
+D:\dev\projects\lego-collection\lego-data-service\lego-data-service-impl\src\main\java\com\vattima\lego\inventory\service\exception\LegoDataServiceException.java
+D:\dev\projects\lego-collection\lego-data-service\lego-data-service-impl\src\main\java\com\vattima\lego\inventory\service\exception\NewOrUsedNotFoundException.java
+D:\dev\projects\lego-collection\lego-data-service\lego-data-service-impl\src\main\java\com\vattima\lego\inventory\service\exception\ValidationException.java
+D:\dev\projects\lego-collection\lego-data-service\lego-data-service-impl\src\main\java\com\vattima\lego\inventory\service\impl\ItemInventoryService.java
+D:\dev\projects\lego-collection\lego-data-service\lego-data-service-impl\src\main\java\com\vattima\lego\inventory\service\internal\config\InternalInventoryServiceConfiguration.java
+D:\dev\projects\lego-collection\lego-data-service\lego-data-service-impl\src\main\java\com\vattima\lego\inventory\service\internal\impl\InternalInventoryService.java

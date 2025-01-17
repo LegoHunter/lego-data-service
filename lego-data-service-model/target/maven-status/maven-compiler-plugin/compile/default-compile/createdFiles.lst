@@ -1,0 +1,6 @@
+com\vattima\lego\inventory\service\dto\ItemDto$ItemDtoBuilder.class
+com\vattima\lego\inventory\service\dto\ItemDto.class
+com\vattima\lego\inventory\service\dto\BadRequestResponse$BadRequestResponseBuilder.class
+com\vattima\lego\inventory\service\dto\AddItemInventoryRequest$AddItemInventoryRequestBuilder.class
+com\vattima\lego\inventory\service\dto\AddItemInventoryRequest.class
+com\vattima\lego\inventory\service\dto\BadRequestResponse.class
