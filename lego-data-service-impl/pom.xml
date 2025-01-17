@@ -9,6 +9,7 @@
 
   <artifactId>lego-data-service-impl</artifactId>
   <name>LEGO :: Data Service Implementation</name>
+  <packaging>jar</packaging>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

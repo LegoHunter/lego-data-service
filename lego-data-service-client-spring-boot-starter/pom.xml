@@ -10,6 +10,7 @@
   <artifactId>lego-data-service-client-spring-boot-starter</artifactId>
 
   <name>LEGO :: Data Service Client Springboot Starter</name>
+  <packaging>jar</packaging>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

@@ -10,6 +10,7 @@
   <artifactId>lego-data-service-rest-autoconfigure</artifactId>
 
   <name>LEGO :: Data Service REST Autoconfigure</name>
+  <packaging>jar</packaging>
 
   <dependencies>
     <dependency>
