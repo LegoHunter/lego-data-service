@@ -1,7 +1,6 @@
 package com.vattima.lego.inventory.service.controller;
 
 import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
-import com.vattima.lego.inventory.service.impl.ItemInventoryService;
 import lombok.RequiredArgsConstructor;
 import net.lego.data.v2.dao.ItemInventoryDao;
 import net.lego.data.v2.dto.ItemInventory;
@@ -15,7 +14,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ItemInventoryController {
 
-    private final ItemInventoryService itemInventoryService;
+//    private final ItemInventoryService itemInventoryService;
     private final ItemInventoryDao itemInventoryDao;
 
     @GetMapping
@@ -33,8 +32,8 @@ public class ItemInventoryController {
         return itemInventoryDao.findByItemInventoryId(itemInventoryId).map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @PostMapping
-    public ResponseEntity<ItemInventory> addItemInventory(@RequestBody AddItemInventoryRequest addItemInventoryRequest) {
-        return ResponseEntity.ok(itemInventoryService.addItemInventory(addItemInventoryRequest));
-    }
+//    @PostMapping
+//    public ResponseEntity<ItemInventory> addItemInventory(@RequestBody AddItemInventoryRequest addItemInventoryRequest) {
+//        return ResponseEntity.ok(itemInventoryService.addItemInventory(addItemInventoryRequest));
+//    }
 }

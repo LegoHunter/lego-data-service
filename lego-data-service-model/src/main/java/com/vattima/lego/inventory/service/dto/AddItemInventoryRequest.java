@@ -3,20 +3,18 @@ package com.vattima.lego.inventory.service.dto;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.ZonedDateTime;
+import java.util.List;
+
 @Data
 @Builder
 public class AddItemInventoryRequest {
-    private String itemNumber;
-    private String description;
-    private Integer boxNumber;
-    private String newOrUsed;
-    private String completeness;
-    private Boolean sealed;
-    private Boolean builtOnce;
-    private String itemConditionCode;
-    private String boxConditionCode;
-    private String instructionsConditionCode;
-    private Boolean forSale;
-    private Integer quantity;
-    private Boolean active;
+    private ZonedDateTime transactionDateTime;
+    private Long fromPartyId;
+    private Long toPartyId;
+    private String notes;
+    private String platformName;
+    private List<ItemInventoryRequest> inventoryItems;
+    private List<PaymentRequest> payments;
+    private List<CostRequest> costs;
 }
