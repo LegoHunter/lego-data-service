@@ -2,17 +2,13 @@ package com.vattima.lego.inventory.service.dto;
 
 import com.vattima.lego.inventory.service.validation.ValidUpperCaseCharacter;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 import lombok.Data;
 import net.lego.data.v2.validation.ConditionCodeExists;
 import net.lego.data.v2.validation.ItemNumberExists;
 import org.hibernate.validator.constraints.Range;
-
-import java.util.List;
 
 @Data
 @Builder
