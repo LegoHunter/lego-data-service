@@ -21,6 +21,7 @@
         <mybatis-spring-boot-starter.version>3.0.3</mybatis-spring-boot-starter.version>
         <lombok.version>1.18.34</lombok.version>
         <github.organization>LegoHunter</github.organization>
+        <github.repo.url>https://github.com/${github.organization}/lego-data-service.git</github.repo.url>
     </properties>
 
     <distributionManagement>
@@ -30,6 +31,12 @@
             <url>https://maven.pkg.github.com/${github.organization}/lego-data-service</url>
         </repository>
     </distributionManagement>
+
+    <scm>
+        <url>${github.repo.url}</url>
+        <connection>scm:git:${github.repo.url</connection>
+        <developerConnection>scm:git:${github.repo.url</developerConnection>
+    </scm>
 
     <repositories>
         <repository>
