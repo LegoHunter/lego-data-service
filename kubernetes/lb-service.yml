@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: lego-data-service
+  namespace: sandbox
+spec:
+  selector:
+    app: lego-data-service-deployment
+  ports:
+    - port: 8091
+      targetPort: 8080
+  type: LoadBalancer

@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lego-data-service-deployment
+  labels:
+    app: lego-data-service-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lego-data-service-deployment
+  template:
+    metadata:
+      name: lego-data-service-deployment
+      labels:
+        app: lego-data-service-deployment
+    spec:
+      containers:
+        - name: lego-data-service-deployment
+          image: quay.io/tvattima/lego-data-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILE_ACTIVE
+              value: "123"
+          volumeMounts:
+            - name: database-volume
+              mountPath: /etc/.credentials/database
+      volumes:
+        - name: database-volume
+          projected:
+            sources:
+              - secret:
+                  name: database-configuration
+      restartPolicy: Always

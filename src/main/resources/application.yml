@@ -1,0 +1,82 @@
+server:
+  port: ${serverPort:8080}
+spring:
+  jmx:
+    enabled: false
+  application:
+    name: Lego Data service
+  kafka:
+    bootstrap-servers: 10.0.0.10:9092
+
+management:
+  info:
+    git:
+      enabled: true
+      mode: full
+
+  datasource:
+    database-key-name: site5-dev-lego
+    hikari:
+      connection-timeout: 180000
+      idle-timeout: 60000
+      connection-test-query: SELECT 1
+      initialization-fail-timeout: 60000
+      auto-commit: false
+      login-timeout: 60000
+      minimum-idle: 40
+      maximum-pool-size: 40
+      validation-timeout: 60000
+      pool-name: site5-mysql-jdbc-pool
+      max-lifetime: 10000
+
+#      security:
+#        protocol: SASL_SSL
+#      properties:
+#        sasl.mechanism: AWS_MSK_IAM
+#        sasl.jaas.config: "software.amazon.msk.auth.iam.IAMLoginModule required ;"
+#        sasl.client.callback.handler.class: software.amazon.msk.auth.iam.IAMClientCallbackHandler
+#    bootstrap-servers:
+#      - b-3-public.legocluster.zito4l.c9.kafka.us-east-1.amazonaws.com:9198
+#      - b-1-public.legocluster.zito4l.c9.kafka.us-east-1.amazonaws.com:9198
+#      - b-4-public.legocluster.zito4l.c9.kafka.us-east-1.amazonaws.com:9198
+#    producer:
+#      template:
+#        default-topic: aws-chat-room
+#      bootstrap-servers:
+#        - b-3-public.legocluster.zito4l.c9.kafka.us-east-1.amazonaws.com:9198
+#        - b-1-public.legocluster.zito4l.c9.kafka.us-east-1.amazonaws.com:9198
+#        - b-4-public.legocluster.zito4l.c9.kafka.us-east-1.amazonaws.com:9198
+#      security:
+#        protocol: SASL_SSL
+#      properties:
+#        sasl.mechanism: AWS_MSK_IAM
+#        sasl.jaas.config: "software.amazon.msk.auth.iam.IAMLoginModule required ;"
+#        sasl.client.callback.handler.class: software.amazon.msk.auth.iam.IAMClientCallbackHandler
+
+aws-credentials:
+  client-config-dir: C:\Users\tvatt\.credentials\aws
+  client-config-file: aws-iam-credentials.json
+
+aws-iam-roles-anywhere:
+  client-config-dir: C:\Users\tvatt\.credentials\aws
+  client-config-file: aws-iam-roles-anywhere.json
+
+flickr:
+  client-config-dir: C:\Users\tvatt\.credentials\flickr.api
+  client-config-file: flickr-client-api-keys.json
+  application-name: lego-imaging
+  debug-request: false
+  debug-stream: false
+
+bitly:
+  client-config-dir: C:\Users\tvatt\.credentials\bitly.api
+  client-config-file: bitly-client-api-keys.json
+
+events:
+  queues:
+    user-created-by-name-queue: sandbox-sqs-queue
+
+logging:
+  level:
+    root: info
+
