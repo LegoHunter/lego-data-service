@@ -13,6 +13,7 @@
     <artifactId>lego-data-service</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <name>Lego :: Data Service</name>
+    <packaging>jar</packaging>
 
     <properties>
         <java.version>22</java.version>
@@ -164,6 +165,10 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
             <plugin>
                 <groupId>pl.project13.maven</groupId>
                 <artifactId>git-commit-id-plugin</artifactId>
