@@ -1,6 +1,7 @@
 package com.vattima.lego.inventory.service.controller;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.flogger.Flogger;
 import net.lego.data.v2.dao.CarrierDao;
 import net.lego.data.v2.dto.Carrier;
 import org.springframework.http.ResponseEntity;
