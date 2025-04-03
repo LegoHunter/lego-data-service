@@ -5,18 +5,18 @@
 
     <springProperty scope="context" name="appName" source="spring.application.name"/>
 
-    <springProfile name="!json-logs">
-        <include resource="org/springframework/boot/logging/logback/base.xml" />
-    </springProfile>
+<!--    <springProfile name="local">-->
+<!--        <include resource="org/springframework/boot/logging/logback/base.xml" />-->
+<!--    </springProfile>-->
 
-    <springProfile name="json-logs">
+    <springProfile name="local,kubernetes">
         <appender name="jsonConsoleAppender" class="ch.qos.logback.core.ConsoleAppender">
             <encoder class="net.logstash.logback.encoder.LogstashEncoder" />
         </appender>
 
         <format>
             <label>
-                <pattern>app=${appName},host=${HOSTNAME},traceId=%X{traceId:-NONE},spanId=%X{spanId:-NONE},level=%level</pattern>
+                <pattern>app=${appName},host=${HOSTNAME},traceId=%X{traceId:-},spanId=%X{spanId:-NONE},level=%level,logger=%logger{5}</pattern>
             </label>
             <message>
                 <pattern>${FILE_LOG_PATTERN}</pattern>
