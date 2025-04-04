@@ -1,1 +1,5 @@
 import-path: /etc/.credentials
+
+spring:
+  main:
+    banner-mode: off
