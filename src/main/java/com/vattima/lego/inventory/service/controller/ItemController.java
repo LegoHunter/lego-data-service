@@ -1,5 +1,6 @@
 package com.vattima.lego.inventory.service.controller;
 
+import com.vattima.lego.inventory.service.logging.LogExecution;
 import lombok.RequiredArgsConstructor;
 import net.lego.data.v2.dao.ItemDao;
 import net.lego.data.v2.dto.Item;
@@ -20,16 +21,19 @@ public class ItemController {
     private final ItemDao itemDao;
 
     @GetMapping
+    @LogExecution
     public ResponseEntity<List<Item>> findAll() {
         return ResponseEntity.ok(itemDao.findAll());
     }
 
     @GetMapping("/{itemId}")
+    @LogExecution
     public ResponseEntity<Optional<Item>> findByItemId(@PathVariable("itemId") Integer itemId) {
         return ResponseEntity.ok(itemDao.findByItemId(itemId));
     }
 
     @GetMapping("/number/{itemNumber}")
+    @LogExecution
     public ResponseEntity<Optional<Item>> findByItemNumber(@PathVariable("itemNumber") String itemNumber) {
         return ResponseEntity.ok(itemDao.findByItemNumber(itemNumber));
     }

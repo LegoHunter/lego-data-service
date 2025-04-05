@@ -1,5 +1,6 @@
 package com.vattima.lego.inventory.service.controller;
 
+import com.vattima.lego.inventory.service.logging.LogExecution;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.flogger.Flogger;
 import net.lego.data.v2.dao.CarrierDao;
@@ -20,11 +21,13 @@ public class CarrierController {
     private final CarrierDao carrierDao;
 
     @GetMapping
+    @LogExecution
     public ResponseEntity<List<Carrier>> findAll() {
         return ResponseEntity.ok(carrierDao.findAll());
     }
 
     @GetMapping("/{carrierCode}")
+    @LogExecution
     public ResponseEntity<Optional<Carrier>> findByCarrierCode(@PathVariable("carrierCode") String carrierCode) {
         return ResponseEntity.ok(carrierDao.findCarrierByCode(carrierCode));
     }

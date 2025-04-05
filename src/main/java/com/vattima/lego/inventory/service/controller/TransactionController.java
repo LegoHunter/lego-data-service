@@ -3,6 +3,7 @@ package com.vattima.lego.inventory.service.controller;
 import com.vattima.lego.inventory.service.api.TransactionService;
 import com.vattima.lego.inventory.service.dto.AddTransactionRequest;
 import com.vattima.lego.inventory.service.dto.AddTransactionResponse;
+import com.vattima.lego.inventory.service.logging.LogExecution;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +22,7 @@ public class TransactionController {
 
     @PostMapping
     @Transactional
+    @LogExecution
     public ResponseEntity<AddTransactionResponse> addTransaction(@RequestBody AddTransactionRequest request) {
         AddTransactionResponse response = transactionService.addTransaction(request);
         return ResponseEntity.ok(response);

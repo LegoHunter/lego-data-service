@@ -1,11 +1,14 @@
 package com.vattima.lego.inventory.service.controller;
 
-import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
+import com.vattima.lego.inventory.service.logging.LogExecution;
 import lombok.RequiredArgsConstructor;
 import net.lego.data.v2.dao.ItemInventoryDao;
 import net.lego.data.v2.dto.ItemInventory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -14,20 +17,23 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ItemInventoryController {
 
-//    private final ItemInventoryService itemInventoryService;
+    //    private final ItemInventoryService itemInventoryService;
     private final ItemInventoryDao itemInventoryDao;
 
     @GetMapping
+    @LogExecution
     public ResponseEntity<List<ItemInventory>> findAll() {
         return ResponseEntity.ok(itemInventoryDao.findAll());
     }
 
     @GetMapping("/uuid/{uuid}")
+    @LogExecution
     public ResponseEntity<ItemInventory> findByUuid(@PathVariable final String uuid) {
         return itemInventoryDao.findByUuid(uuid).map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/{itemInventoryId}")
+    @LogExecution
     public ResponseEntity<ItemInventory> findByUuid(@PathVariable final Integer itemInventoryId) {
         return itemInventoryDao.findByItemInventoryId(itemInventoryId).map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
