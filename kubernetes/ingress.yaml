@@ -1,0 +1,16 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: lego-data-service
+  namespace: services-sandbox
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`lego-data-service.sandbox.internal.legohunter.io`)
+      kind: Rule
+      services:
+        - name: lego-data-service
+          port: 80
+  tls:
+    secretName: sandbox-internal-legohunter-io-tls
