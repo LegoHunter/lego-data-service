@@ -9,5 +9,3 @@ management:
 logging:
   level:
     root: debug
-
-debug: true

@@ -12,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.lego.data.v2.dao.*;
 import net.lego.data.v2.dto.*;
-import net.lego.data.v2.enums.CostCategory;
 import net.lego.data.v2.enums.CurrencyCode;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
@@ -24,9 +23,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static net.lego.data.v2.enums.CostCategory.TRANSACTION;
-import static net.lego.data.v2.enums.CostCategory.TRANSACTION_ITEM;
 
 @Component
 @RequiredArgsConstructor
@@ -70,8 +66,7 @@ public class TransactionServiceImpl implements TransactionService {
                         .stream()
                         .map(costRequest ->
                                 TransactionCost.builder()
-                                        .costCategoryCode(CostCategory.TRANSACTION)
-                                        .costReferenceId(transactions.getTransactionId())
+                                        .transactionId(transactions.getTransactionId())
                                         .costTypeCode(costRequest.getCostTypeCode())
                                         .amount(costRequest.getAmount())
                                         .currencyCode(CurrencyCode.valueOf(costRequest.getCurrencyCode()))
@@ -144,15 +139,12 @@ public class TransactionServiceImpl implements TransactionService {
                     transactionCostDao.setTransactionItemCosts(transactionItem.getTransactionItemId(),
                             transactionItemRequest.getCosts()
                                     .stream()
-                                    .map(costRequest ->
-                                            TransactionCost.builder()
-                                                    .costCategoryCode(CostCategory.TRANSACTION_ITEM)
-                                                    .costReferenceId(transactionItem.getTransactionItemId())
-                                                    .costTypeCode(costRequest.getCostTypeCode())
-                                                    .amount(costRequest.getAmount())
-                                                    .currencyCode(CurrencyCode.valueOf(costRequest.getCurrencyCode()))
-                                                    .notes(costRequest.getNotes())
-                                                    .build()
+                                    .map(costRequest -> TransactionItemCost.builder()
+                                            .costTypeCode(costRequest.getCostTypeCode())
+                                            .currencyCode(costRequest.getCurrencyCode())
+                                            .amount(costRequest.getAmount())
+                                            .notes(costRequest.getNotes())
+                                            .build()
                                     ).toList());
                 });
 

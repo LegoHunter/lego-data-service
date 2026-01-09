@@ -3,33 +3,22 @@ on:
   push:
     branches:
       - 'feature/**'
-  pull_request:
-    branches:
-      - develop
-      - master
-    types:
-      - closed
-
-env:
-  TAG_NAME: latest
-  NAMESPACE: sandbox
-  APP_NAME: lego-data-service
+#  pull_request:
+#    branches:
+#      - develop
+#      - master
+#    types:
+#      - closed
 
 jobs:
-  build-test-deploy:
+  Feature-Branch-Maven-Deploy-Snapshot:
     runs-on: ubuntu-latest
-    outputs:
-      tag_name: ${{ steps.env-output.outputs.tag_name }}
-      namespace: ${{ steps.env-output.outputs.namespace }}
     permissions:
       contents: read
       packages: write
     steps:
-      - name: git checkout
-        uses: actions/checkout@v4
-
-      - name: setup java
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: '22'
           distribution: 'temurin'
@@ -41,75 +30,35 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: set snapshot tag
-        if: ${{ startsWith(github.ref_name, 'feature/') }}
-        run: |  
-          echo "TAG_NAME=snapshot" >> "$GITHUB_ENV"
-          echo "NAMESPACE=sandbox" >> "$GITHUB_ENV"
-
-      - name: set develop tag
-        if: ${{ github.ref_name == 'develop' }}
-        run: |
-          echo "TAG_NAME=develop" >> "$GITHUB_ENV"
-          echo "NAMESPACE=dev" >> "$GITHUB_ENV"
-
-      - name: set production tag
-        if: ${{ github.ref_name == 'master' }}
-        run: |
-          echo "TAG_NAME=production" >> "$GITHUB_ENV"
-          echo "NAMESPACE=prod" >> "$GITHUB_ENV"
-
-      - name: buildah build
+      - name: Buildah Build
         id: buildah-build
         uses: redhat-actions/buildah-build@v2
         with:
-          image: ${{env.APP_NAME}}
-          tags: "${{ github.sha }} latest ${{env.TAG_NAME}}"
+          image: lego-data-service
+          tags: ${{ github.sha }} snapshot latest
           platforms: linux/arm64
           containerfiles: |
             ./kubernetes/Containerfile
 
-      - name: podman push sha
+      - name: Podman Push
         uses: redhat-actions/push-to-registry@v2
         with:
           image: ${{ steps.buildah-build.outputs.image }}
-          tags: ${{ github.sha }}
+          tags: ${{ steps.buildah-build.outputs.tags }}
           registry: quay.io/tvattima
           username: ${{ vars.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_TOKEN }}
 
-      - name: podman push latest
-        uses: redhat-actions/push-to-registry@v2
-        with:
-          image: ${{ steps.buildah-build.outputs.image }}
-          tags: latest
-          registry: quay.io/tvattima
-          username: ${{ vars.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_TOKEN }}
+  deploy-to-legohunter-io:
+    needs: Feature-Branch-Maven-Deploy-Snapshot
+    runs-on: [ arc-runner ]
 
-      - name: podman push tag
-        uses: redhat-actions/push-to-registry@v2
-        with:
-          image: ${{ steps.buildah-build.outputs.image }}
-          tags: "${{env.TAG_NAME}}"
-          registry: quay.io/tvattima
-          username: ${{ vars.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_TOKEN }}
-
-      - name: env output
-        id: env-output
-        run: |
-          echo "tag_name=${{env.TAG_NAME}}" >> "$GITHUB_OUTPUT"
-          echo "namespace=${{env.NAMESPACE}}" >> "$GITHUB_OUTPUT"
-
-  deploy-to-legolandserver1:
-    needs: build-test-deploy
-    runs-on: [ self-hosted, Linux, ARM64 ]
-    env:
-      TAG_NAME: ${{needs.build-test-deploy.outputs.tag_name}}
-      NAMESPACE: ${{needs.build-test-deploy.outputs.namespace}}
     steps:
+      - uses: actions/checkout@v4
+
       - name: Deploy on Kubernetes cluster
         run: |
-          kubectl set image deployment/${{env.APP_NAME}}-deployment ${{env.APP_NAME}}-deployment=quay.io/tvattima/${{env.APP_NAME}}:${{env.TAG_NAME}} --namespace=${{env.NAMESPACE}}
-          kubectl rollout restart deployment/${{env.APP_NAME}}-deployment --namespace=${{env.NAMESPACE}}
+          kubectl apply -f kubernetes/deployment.yml
+          echo "Waiting for rollout to complete..."
+          kubectl rollout status deployment/lego-data-service-deployment -n services-sandbox --timeout=180s || true
+

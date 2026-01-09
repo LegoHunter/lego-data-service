@@ -1,5 +1,6 @@
 package com.vattima.lego.inventory.service.dto;
 
+import com.vattima.lego.inventory.service.validation.UniqueCostTypeCode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -39,6 +40,6 @@ public class AddTransactionRequest {
     @Valid
     private List<PaymentRequest> payments;
 
-    @Valid
-    private List<CostRequest> costs;
+    @UniqueCostTypeCode
+    private List<@Valid CostRequest> costs;
 }
