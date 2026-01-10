@@ -11,7 +11,7 @@ on:
 #      - closed
 
 jobs:
-  Feature-Branch-Maven-Deploy-Snapshot:
+  feature-branch-build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -49,20 +49,16 @@ jobs:
           username: ${{ vars.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_TOKEN }}
 
-  deploy-to-legohunter-io:
-    needs: Feature-Branch-Maven-Deploy-Snapshot
-    runs-on: [ arc-runner ]
+  deploy-sandbox:
+    needs: feature-branch-build
+    runs-on: arc-runner
 
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy on Kubernetes cluster
+
+      - name: Deploy to sandbox
         run: |
-          kubectl kustomize -f kubernetes/overlays/sandbox
-#          kubectl apply -f kubernetes/deployment.yaml
-          echo "Waiting for rollout to complete..."
-          kubectl rollout status deployment/lego-data-service-deployment -n services-sandbox --timeout=180s || true
-#          echo "Waiting for service to complete..."
-#          kubectl apply -f kubernetes/service.yaml
-#          echo "Waiting for ingress to complete..."
-#          kubectl apply -f kubernetes/ingress.yaml
+          kubectl apply -k kubernetes/lego-data-service/overlays/sandbox
+          kubectl rollout status deployment/lego-data-service-deployment \
+            -n services-sandbox --timeout=180s
 
