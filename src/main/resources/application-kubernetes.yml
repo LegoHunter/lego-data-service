@@ -1,4 +1,5 @@
-import-path: /etc/.credentials
+#import-path: /etc/.credentials
+import-path: /dev/config
 
 management:
   endpoint:
