@@ -58,6 +58,11 @@ jobs:
 
       - name: Deploy to sandbox
         run: |
-          kubectl apply -k kubernetes/lego-data-service/overlays/sandbox --set-image quay.io/tvattima/lego-data-service=quay.io/tvattima/lego-data-service:${{ github.sha }}
-          kubectl rollout status deployment/lego-data-service-deployment -n services-sandbox --timeout=180s
+          sed -i 's/newTag: .*/newTag: ${{ github.sha }}/' \
+            kubernetes/overlays/sandbox/kustomization.yaml
+          
+          kubectl apply -k kubernetes/overlays/sandbox
+          
+          kubectl rollout status deployment/lego-data-service-deployment \
+            -n services-sandbox --timeout=180s
 
