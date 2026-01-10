@@ -5,8 +5,6 @@ namespace: services-sandbox
 
 resources:
   - ../../base
-  - deployment-resources-patch.yaml
-  - deployment-env-patch.yaml
   - hpa.yaml
 
 images:
@@ -18,12 +16,7 @@ replicas:
     count: 1
 
 patches:
-  - target:
-      kind: Deployment
-      name: lego-data-service-deployment
-    patch: |
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: SPRING_PROFILES_ACTIVE
-          value: sandbox
+  # Strategic merge patches - just list the file names
+  - deployment-env-patch.yaml
+  - deployment-resources-patch.yaml
+
