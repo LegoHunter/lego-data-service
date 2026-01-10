@@ -57,7 +57,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Deploy on Kubernetes cluster
         run: |
-          kubectl kustomize kubernetes/lego-data-service/overlays/sandbox
+          kubectl kustomize kubernetes/overlays/sandbox
 #          kubectl apply -f kubernetes/deployment.yaml
           echo "Waiting for rollout to complete..."
           kubectl rollout status deployment/lego-data-service-deployment -n services-sandbox --timeout=180s || true
