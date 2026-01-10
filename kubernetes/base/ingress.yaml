@@ -3,6 +3,8 @@ kind: IngressRoute
 metadata:
   name: lego-data-service
   namespace: services-sandbox
+  annotations:
+    kubernetes.io/ingress.class: traefik-external
 spec:
   entryPoints:
     - websecure
@@ -11,6 +13,8 @@ spec:
       kind: Rule
       services:
         - name: lego-data-service
-          port: 80
+          port: 8080
+      middlewares:
+        - name: default-headers
   tls:
     secretName: sandbox-internal-legohunter-io-tls

@@ -58,11 +58,12 @@ jobs:
 
       - name: Deploy on Kubernetes cluster
         run: |
-          kubectl apply -f kubernetes/deployment.yaml
+          kubectl kustomize kubernetes/lego-data-service/overlays/sandbox
+#          kubectl apply -f kubernetes/deployment.yaml
           echo "Waiting for rollout to complete..."
           kubectl rollout status deployment/lego-data-service-deployment -n services-sandbox --timeout=180s || true
-          echo "Waiting for service to complete..."
-          kubectl apply -f kubernetes/service.yaml
-          echo "Waiting for ingress to complete..."
-          kubectl apply -f kubernetes/ingress.yaml
+#          echo "Waiting for service to complete..."
+#          kubectl apply -f kubernetes/service.yaml
+#          echo "Waiting for ingress to complete..."
+#          kubectl apply -f kubernetes/ingress.yaml
 

@@ -3,14 +3,12 @@ kind: Service
 metadata:
   name: lego-data-service
   namespace: services-sandbox
-  labels:
-    app: lego-data-service-deployment
 spec:
   type: ClusterIP
   selector:
     app: lego-data-service-deployment
   ports:
     - name: http
-      port: 80
+      port: 8080
       targetPort: 8080
       protocol: TCP
