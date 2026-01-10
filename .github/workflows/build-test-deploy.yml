@@ -58,7 +58,7 @@ jobs:
 
       - name: Deploy to sandbox
         run: |
-          kubectl apply -k kubernetes/lego-data-service/overlays/sandbox
+          kubectl apply -k kubernetes/overlays/sandbox
           kubectl rollout status deployment/lego-data-service-deployment \
             -n services-sandbox --timeout=180s
 
