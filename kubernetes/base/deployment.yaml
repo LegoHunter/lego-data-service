@@ -27,7 +27,7 @@ spec:
             httpGet:
               path: /actuator/health/liveness
               port: 8080
-            failureThreshold: 30   # 30 × 5s = 150s max startup
+            failureThreshold: 60   # 60 × 5s = 300s max startup
             periodSeconds: 5
             timeoutSeconds: 2
 
@@ -38,16 +38,16 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 10
             timeoutSeconds: 3
-            failureThreshold: 3
+            failureThreshold: 10
 
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 3
+            failureThreshold: 10
 
           env:
             - name: JAVA_TOOL_OPTIONS
