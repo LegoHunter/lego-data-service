@@ -9,3 +9,18 @@ resources:
 images:
   - name: quay.io/tvattima/lego-data-service
     newTag: snapshot
+
+replicas:
+  - name: lego-data-service-deployment
+    count: 4
+
+patches:
+  - target:
+      kind: Deployment
+      name: lego-data-service-deployment
+    patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: SPRING_PROFILES_ACTIVE
+          value: sandbox
