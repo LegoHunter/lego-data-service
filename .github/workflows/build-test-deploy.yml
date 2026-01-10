@@ -46,8 +46,9 @@ jobs:
       - name: Podman Push
         uses: redhat-actions/push-to-registry@v2
         with:
-          image: quay.io/tvattima/lego-data-service
+          image: lego-data-service
           tags: ${{ steps.buildah-build.outputs.tags }}
+          registry: quay.io/tvattima
           username: ${{ vars.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_TOKEN }}
 
