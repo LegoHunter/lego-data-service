@@ -14,14 +14,15 @@ management:
       enabled: true
       mode: full
 
-  endpoints:
-    web:
-      exposure:
-        include: health,info
   endpoint:
     health:
       probes:
         enabled: true
+
+  endpoints:
+    web:
+      exposure:
+        include: health,info
 
   datasource:
     database-key-name: site5-dev-lego
