@@ -5,3 +5,7 @@ namespace: services-sandbox
 
 resources:
   - ../../base
+
+images:
+  - name: quay.io/tvattima/lego-data-service
+    newTag: snapshot

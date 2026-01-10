@@ -17,8 +17,8 @@ spec:
         app: lego-data-service-deployment
     spec:
       containers:
-        - name: lego-data-service-deployment
-          image: quay.io/tvattima/lego-data-service:latest
+        - name: lego-data-service
+          image: quay.io/tvattima/lego-data-service
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
