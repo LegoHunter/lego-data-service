@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lego-data-service-deployment
+spec:
+  template:
+    spec:
+      containers:
+        - name: lego-data-service
+          env:
+            - name: CUSTOM_ENV_VAR
+              value: sandbox-value

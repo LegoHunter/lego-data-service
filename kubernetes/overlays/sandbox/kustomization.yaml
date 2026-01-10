@@ -5,6 +5,9 @@ namespace: services-sandbox
 
 resources:
   - ../../base
+  - deployment-resources-patch.yaml
+  - deployment-env-patch.yaml
+  - hpa.yaml
 
 images:
   - name: quay.io/tvattima/lego-data-service
