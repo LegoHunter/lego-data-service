@@ -7,7 +7,6 @@ namespace: services-sandbox
 # Base resources
 resources:
   - ../../base
-  - hpa.yaml
 
 # Image tag injection
 images:
