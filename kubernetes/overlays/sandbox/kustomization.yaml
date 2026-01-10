@@ -12,7 +12,7 @@ images:
 
 replicas:
   - name: lego-data-service-deployment
-    count: 4
+    count: 1
 
 patches:
   - target:
