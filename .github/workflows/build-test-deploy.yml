@@ -33,7 +33,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build container image
+      - name: Buildah Build
         id: buildah-build
         uses: redhat-actions/buildah-build@v2
         with:
@@ -42,12 +42,11 @@ jobs:
           platforms: linux/arm64
           containerfiles: ./kubernetes/Containerfile
 
-      - name: Push image to registry
+      - name: Podman Push
         uses: redhat-actions/push-to-registry@v2
         with:
-          image: ${{ steps.buildah-build.outputs.image }}
+          image: quay.io/tvattima/lego-data-service
           tags: ${{ steps.buildah-build.outputs.tags }}
-          registry: quay.io/tvattima
           username: ${{ vars.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_TOKEN }}
 
