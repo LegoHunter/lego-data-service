@@ -1,15 +1,14 @@
-name: 'Build Test Deploy'
-
+name: Build Test Deploy
 on:
   push:
     branches:
       - 'feature/**'
   pull_request:
     branches:
-      - develop        # PR merged into develop → dev
-      - main           # PR merged into main → prod
+      - develop
+      - main
     types:
-      - closed         # Only trigger after PR is closed (merged)
+      - closed
 
 jobs:
   build-and-push:
@@ -39,16 +38,17 @@ jobs:
         uses: redhat-actions/buildah-build@v2
         with:
           image: quay.io/tvattima/lego-data-service
+          # Tags: SHA + snapshot + latest for feature branch
           tags: ${{ github.sha }} snapshot latest
           platforms: linux/arm64
           containerfiles: ./kubernetes/Containerfile
 
-      - name: Podman Push
+      - name: Push to Quay
         uses: redhat-actions/push-to-registry@v2
         with:
-          image: lego-data-service
+          registry: quay.io
+          image: tvattima/lego-data-service
           tags: ${{ steps.buildah-build.outputs.tags }}
-          registry: quay.io/tvattima
           username: ${{ vars.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_TOKEN }}
 
@@ -61,22 +61,31 @@ jobs:
       - name: Determine environment overlay
         id: env
         run: |
-          if [[ "${GITHUB_REF}" == refs/heads/feature/* ]]; then
+          if [[ "${{ github.ref }}" == refs/heads/feature/* ]]; then
             echo "overlay=sandbox" >> $GITHUB_OUTPUT
             echo "namespace=services-sandbox" >> $GITHUB_OUTPUT
-          elif [[ "${GITHUB_EVENT_PULL_REQUEST_MERGED}" == "true" && "${GITHUB_EVENT_PULL_REQUEST_BASE_REF}" == "develop" ]]; then
+            echo "imageTag=snapshot" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.pull_request.merged }}" == "true" && "${{ github.event.pull_request.base.ref }}" == "develop" ]]; then
             echo "overlay=dev" >> $GITHUB_OUTPUT
             echo "namespace=services-dev" >> $GITHUB_OUTPUT
-          elif [[ "${GITHUB_EVENT_PULL_REQUEST_MERGED}" == "true" && "${GITHUB_EVENT_PULL_REQUEST_BASE_REF}" == "main" ]]; then
+            echo "imageTag=${{ github.sha }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.pull_request.merged }}" == "true" && "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
             echo "overlay=prod" >> $GITHUB_OUTPUT
             echo "namespace=services-prod" >> $GITHUB_OUTPUT
+            echo "imageTag=${{ github.sha }}" >> $GITHUB_OUTPUT
           else
             echo "No deployment needed"
             exit 0
           fi
 
-      - name: Deploy via kustomize
+      - name: Deploy via Kustomize
         run: |
           echo "Deploying overlay ${{ steps.env.outputs.overlay }} to namespace ${{ steps.env.outputs.namespace }}"
           kubectl apply -k kubernetes/overlays/${{ steps.env.outputs.overlay }} \
-            -n ${{ steps.env.outputs.namespace }}
+            -n ${{ steps.env.outputs.namespace }} \
+            --dry-run=client
+          
+          # Inject image tag dynamically via Kustomize
+          kubectl kustomize kubernetes/overlays/${{ steps.env.outputs.overlay }} \
+            | sed "s|quay.io/tvattima/lego-data-service:.*|quay.io/tvattima/lego-data-service:${{ steps.env.outputs.imageTag }}|g" \
+            | kubectl apply -f -

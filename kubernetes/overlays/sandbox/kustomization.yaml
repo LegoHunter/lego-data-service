@@ -1,22 +1,25 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+# Namespace for this overlay
 namespace: services-sandbox
 
+# Base resources
 resources:
   - ../../base
   - hpa.yaml
 
+# Image tag injection
 images:
   - name: quay.io/tvattima/lego-data-service
     newTag: snapshot
 
+# Replica override
 replicas:
   - name: lego-data-service-deployment
     count: 1
 
-patches:
-  # Strategic merge patches - just list the file names
+# File-based strategic merge patches
+patchesStrategicMerge:
   - deployment-env-patch.yaml
   - deployment-resources-patch.yaml
-

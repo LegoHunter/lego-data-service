@@ -8,5 +8,5 @@ spec:
       containers:
         - name: lego-data-service
           env:
-            - name: CUSTOM_ENV_VAR
-              value: sandbox-value
+            - name: SPRING_PROFILES_ACTIVE
+              value: sandbox
