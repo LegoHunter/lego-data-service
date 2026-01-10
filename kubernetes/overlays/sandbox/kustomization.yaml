@@ -20,6 +20,7 @@ replicas:
     count: 1
 
 # File-based strategic merge patches
-patchesStrategicMerge:
-  - deployment-env-patch.yaml
-  - deployment-resources-patch.yaml
+patches:
+  - path: deployment-env-patch.yaml
+  - path: deployment-resources-patch.yaml
+

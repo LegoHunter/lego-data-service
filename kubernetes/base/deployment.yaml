@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: lego-data-service-deployment
-  namespace: services-sandbox
   labels:
     app: lego-data-service-deployment
 spec:
