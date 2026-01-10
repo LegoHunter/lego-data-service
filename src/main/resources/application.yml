@@ -2,22 +2,15 @@ server:
   port: ${serverPort:8080}
 spring:
   jmx:
-    enabled: false
+    enabled: off
   application:
     name: Lego Data service
-  kafka:
-    bootstrap-servers: 10.0.0.10:9092
 
 management:
   info:
     git:
       enabled: true
       mode: full
-
-  endpoint:
-    health:
-      probes:
-        enabled: true
 
   endpoints:
     web:
