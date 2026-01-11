@@ -1,33 +1,39 @@
 <configuration>
+
+    <!-- Spring Boot defaults -->
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
-    <include resource="org/springframework/boot/logging/logback/console-appender.xml" />
 
-    <springProperty scope="context" name="appName" source="spring.application.name"/>
+    <springProperty scope="context"
+                    name="appName"
+                    source="spring.application.name"/>
 
+    <!-- LOCAL profile: standard console logging -->
     <springProfile name="local">
-        <include resource="org/springframework/boot/logging/logback/base.xml" />
-    </springProfile>
-
-    <springProfile name="kubernetes">
-        <!-- Stop output INFO at start -->
-        <statusListener class="ch.qos.logback.core.status.NopStatusListener" />
-
-        <appender name="jsonConsoleAppender" class="ch.qos.logback.core.ConsoleAppender">
-            <encoder class="net.logstash.logback.encoder.LogstashEncoder" />
-        </appender>
-
-        <format>
-            <label>
-                <pattern>app=${appName},host=${HOSTNAME},traceId=%X{traceId:-},spanId=%X{spanId:-NONE},level=%level,logger=%logger{5}</pattern>
-            </label>
-            <message>
-                <pattern>${FILE_LOG_PATTERN}</pattern>
-            </message>
-            <sortByTime>true</sortByTime>
-        </format>
+        <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
 
         <root level="INFO">
-            <appender-ref ref="jsonConsoleAppender" />
+            <appender-ref ref="CONSOLE"/>
         </root>
     </springProfile>
+
+    <!-- KUBERNETES profile: JSON logs -->
+    <springProfile name="kubernetes">
+
+        <appender name="JSON_CONSOLE"
+                  class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <customFields>
+                    {
+                    "app":"${appName}",
+                    "host":"${HOSTNAME:-unknown}"
+                    }
+                </customFields>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="JSON_CONSOLE"/>
+        </root>
+    </springProfile>
+
 </configuration>

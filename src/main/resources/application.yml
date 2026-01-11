@@ -15,7 +15,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,prometheus,startup
 
   datasource:
     database-key-name: site5-dev-lego
