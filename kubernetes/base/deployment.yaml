@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: lego-data-service-deployment
+  name: lego-data-service
   labels:
-    app: lego-data-service-deployment
+    app: lego-data-service
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: lego-data-service-deployment
+      app: lego-data-service
   template:
     metadata:
-      name: lego-data-service-deployment
+      name: lego-data-service
       labels:
-        app: lego-data-service-deployment
+        app: lego-data-service
     spec:
       containers:
         - name: lego-data-service

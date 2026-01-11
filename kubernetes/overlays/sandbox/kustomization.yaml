@@ -15,7 +15,7 @@ images:
 
 # Replica override
 replicas:
-  - name: lego-data-service-deployment
+  - name: lego-data-service
     count: 1
 
 # File-based strategic merge patches
