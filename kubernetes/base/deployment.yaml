@@ -13,7 +13,12 @@ spec:
     metadata:
       name: lego-data-service
       labels:
-        app: lego-data-service
+        app: lego-data-service   # selector label (required)
+        app.kubernetes.io/name: lego-data-service
+        app.kubernetes.io/instance: sandbox
+        app.kubernetes.io/version: "1.0.0"
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: lego-platform
     spec:
       containers:
         - name: lego-data-service

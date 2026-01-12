@@ -4,6 +4,10 @@ kind: Kustomization
 # Namespace for this overlay
 namespace: services-sandbox
 
+labels:
+  - pairs:
+      app.kubernetes.io/instance: sandbox
+
 # Base resources
 resources:
   - ../../base

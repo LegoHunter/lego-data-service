@@ -4,6 +4,10 @@ metadata:
   name: lego-data-service
   annotations:
     kubernetes.io/ingress.class: traefik-external
+  labels:
+    app.kubernetes.io/name: lego-data-service
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: lego-platform
 spec:
   entryPoints:
     - websecure

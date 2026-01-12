@@ -2,6 +2,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: lego-data-service
+  labels:
+    app.kubernetes.io/name: lego-data-service
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: lego-platform
 spec:
   type: ClusterIP
   selector:
