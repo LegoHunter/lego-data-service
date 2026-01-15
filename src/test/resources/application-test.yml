@@ -1,0 +1,6 @@
+databases:
+  legolandserver1-lego-sandbox:
+    driverClassName: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://legolandserver1:3306/lego_sandbox
+    username: user
+    password: pwd

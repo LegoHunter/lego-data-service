@@ -1,0 +1,11 @@
+import-path: /dev/config
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+logging:
+  level:
+    root: debug

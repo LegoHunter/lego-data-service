@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    database-key-name: legolandserver1-lego-sandbox
+  config:
+    import: file:${import-path}/database/database-configuration.yml
+
+logging:
+  level:
+    root: debug

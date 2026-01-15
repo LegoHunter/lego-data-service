@@ -1,4 +1,4 @@
-name: 'Build Test Deploy'
+name: Build Test Deploy
 on:
   push:
     branches:
@@ -6,29 +6,86 @@ on:
   pull_request:
     branches:
       - develop
-      - master
+      - main
     types:
       - closed
 
 jobs:
-  build-test-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      image-tag: ${{ steps.buildah-build.outputs.image }}
     steps:
-    - name: git checkout
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: setup java
-      uses: actions/setup-java@v4
-      with:
-        java-version: '22'
-        distribution: 'temurin'
-        architecture: x64
-        cache: maven
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '22'
+          distribution: 'temurin'
+          architecture: x64
+          cache: maven
 
-    - name: mvn deploy
-      run: mvn --batch-mode --update-snapshots deploy
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and deploy Maven snapshot
+        run: mvn --update-snapshots deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Buildah Build
+        id: buildah-build
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: quay.io/tvattima/lego-data-service
+          # Tags: SHA + snapshot + latest for feature branch
+          tags: ${{ github.sha }} snapshot latest
+          platforms: linux/arm64
+          containerfiles: ./kubernetes/Containerfile
+
+      - name: Push to Quay
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          registry: quay.io
+          image: tvattima/lego-data-service
+          tags: ${{ steps.buildah-build.outputs.tags }}
+          username: ${{ vars.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_TOKEN }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: [arc-runner]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine environment overlay
+        id: env
+        run: |
+          if [[ "${{ github.ref }}" == refs/heads/feature/* ]]; then
+            echo "overlay=sandbox" >> $GITHUB_OUTPUT
+            echo "namespace=services-sandbox" >> $GITHUB_OUTPUT
+            echo "imageTag=snapshot" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.pull_request.merged }}" == "true" && "${{ github.event.pull_request.base.ref }}" == "develop" ]]; then
+            echo "overlay=dev" >> $GITHUB_OUTPUT
+            echo "namespace=services-dev" >> $GITHUB_OUTPUT
+            echo "imageTag=${{ github.sha }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.pull_request.merged }}" == "true" && "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
+            echo "overlay=prod" >> $GITHUB_OUTPUT
+            echo "namespace=services-prod" >> $GITHUB_OUTPUT
+            echo "imageTag=${{ github.sha }}" >> $GITHUB_OUTPUT
+          else
+            echo "No deployment needed"
+            exit 0
+          fi
+
+      - name: Deploy via Kustomize
+        run: |
+          echo "Deploying overlay ${{ steps.env.outputs.overlay }} to namespace ${{ steps.env.outputs.namespace }}"
+          kubectl apply -k kubernetes/overlays/${{ steps.env.outputs.overlay }} \
+            -n ${{ steps.env.outputs.namespace }} \
+            --dry-run=client
+          
+          # Inject image tag dynamically via Kustomize
+          kubectl kustomize kubernetes/overlays/${{ steps.env.outputs.overlay }} \
+            | sed "s|quay.io/tvattima/lego-data-service:.*|quay.io/tvattima/lego-data-service:${{ steps.env.outputs.imageTag }}|g" \
+            | kubectl apply -f -
