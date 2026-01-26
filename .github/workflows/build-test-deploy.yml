@@ -62,15 +62,15 @@ jobs:
         id: env
         run: |
           if [[ "${{ github.ref }}" == refs/heads/feature/* ]]; then
-            echo "overlay=sandbox" >> $GITHUB_OUTPUT
+            echo "overlay = sandbox" >> $GITHUB_OUTPUT
             echo "namespace=services-sandbox" >> $GITHUB_OUTPUT
             echo "imageTag=snapshot" >> $GITHUB_OUTPUT
           elif [[ "${{ github.event.pull_request.merged }}" == "true" && "${{ github.event.pull_request.base.ref }}" == "develop" ]]; then
-            echo "overlay=dev" >> $GITHUB_OUTPUT
+            echo "overlay = dev" >> $GITHUB_OUTPUT
             echo "namespace=services-dev" >> $GITHUB_OUTPUT
             echo "imageTag=${{ github.sha }}" >> $GITHUB_OUTPUT
           elif [[ "${{ github.event.pull_request.merged }}" == "true" && "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
-            echo "overlay=prod" >> $GITHUB_OUTPUT
+            echo "overlay = prod" >> $GITHUB_OUTPUT
             echo "namespace=services-prod" >> $GITHUB_OUTPUT
             echo "imageTag=${{ github.sha }}" >> $GITHUB_OUTPUT
           else
