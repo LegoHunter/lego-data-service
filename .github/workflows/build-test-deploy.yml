@@ -52,40 +52,59 @@ jobs:
           username: ${{ vars.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_TOKEN }}
 
-  deploy:
-    needs: build-and-push
-    runs-on: [arc-runner]
-    steps:
-      - uses: actions/checkout@v4
+deploy:
+  needs: build-and-push
+  runs-on: [arc-runner]
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Determine environment overlay
-        id: env
-        run: |
-          if [[ "${{ github.ref }}" == refs/heads/feature/* ]]; then
-            echo "overlay=sandbox" >> $GITHUB_OUTPUT
-            echo "namespace=services-sandbox" >> $GITHUB_OUTPUT
-            echo "imageTag=snapshot" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event.pull_request.merged }}" == "true" && "${{ github.event.pull_request.base.ref }}" == "develop" ]]; then
-            echo "overlay=dev" >> $GITHUB_OUTPUT
-            echo "namespace=services-dev" >> $GITHUB_OUTPUT
-            echo "imageTag=${{ github.sha }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event.pull_request.merged }}" == "true" && "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
-            echo "overlay=prod" >> $GITHUB_OUTPUT
-            echo "namespace=services-prod" >> $GITHUB_OUTPUT
-            echo "imageTag=${{ github.sha }}" >> $GITHUB_OUTPUT
-          else
-            echo "No deployment needed"
-            exit 0
+    - name: Deploy via Kustomize
+      id: deploy
+      run: |
+        set -euo pipefail
+
+        # Determine overlay, namespace, and image tag
+        OVERLAY=""
+        NAMESPACE=""
+        IMAGE_TAG=""
+
+        if [[ "${GITHUB_REF}" == refs/heads/feature/* ]]; then
+          OVERLAY="sandbox"
+          NAMESPACE="services-sandbox"
+          IMAGE_TAG="snapshot"
+        elif [[ "${GITHUB_EVENT_NAME}" == "pull_request" && "${{ github.event.pull_request.merged }}" == "true" ]]; then
+          if [[ "${{ github.event.pull_request.base.ref }}" == "develop" ]]; then
+            OVERLAY="dev"
+            NAMESPACE="services-dev"
+            IMAGE_TAG="${GITHUB_SHA}"
+          elif [[ "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
+            OVERLAY="prod"
+            NAMESPACE="services-prod"
+            IMAGE_TAG="${GITHUB_SHA}"
           fi
+        else
+          echo "No deployment needed for ref $GITHUB_REF"
+          exit 0
+        fi
 
-      - name: Deploy via Kustomize
-        run: |
-          echo "Deploying overlay ${{ steps.env.outputs.overlay }} to namespace ${{ steps.env.outputs.namespace }}"
-          kubectl apply -k kubernetes/overlays/${{ steps.env.outputs.overlay }} \
-            -n ${{ steps.env.outputs.namespace }} \
-            --dry-run=client
-          
-          # Inject image tag dynamically via Kustomize
-          kubectl kustomize kubernetes/overlays/${{ steps.env.outputs.overlay }} \
-            | sed "s|quay.io/tvattima/lego-data-service:.*|quay.io/tvattima/lego-data-service:${{ steps.env.outputs.imageTag }}|g" \
-            | kubectl apply -f -
+        echo "Deploying overlay '$OVERLAY' to namespace '$NAMESPACE' with image tag '$IMAGE_TAG'"
+
+        # Check that the overlay directory exists
+        if [[ ! -d "kubernetes/overlays/$OVERLAY" ]]; then
+          echo "ERROR: Overlay directory 'kubernetes/overlays/$OVERLAY' does not exist"
+          exit 1
+        fi
+
+        # Optional dry-run to validate resources
+        kubectl apply -k "kubernetes/overlays/$OVERLAY" -n "$NAMESPACE" --dry-run=client
+
+        # Build Kustomize output and inject dynamic image tag
+        KUSTOMIZE_OUTPUT=$(kubectl kustomize "kubernetes/overlays/$OVERLAY" | \
+          sed "s|quay.io/tvattima/lego-data-service:.*|quay.io/tvattima/lego-data-service:$IMAGE_TAG|g")
+
+        # Apply to cluster
+        echo "$KUSTOMIZE_OUTPUT" | kubectl apply -f -
+
+        echo "Deployment of overlay '$OVERLAY' complete!"
+
