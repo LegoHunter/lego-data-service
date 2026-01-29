@@ -42,4 +42,4 @@ events:
 
 logging:
   level:
-    root: info
+    root: INFO

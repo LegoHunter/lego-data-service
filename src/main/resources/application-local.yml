@@ -8,21 +8,7 @@ management:
 
 logging:
   level:
-    root: debug
     org.springframework.core.env: TRACE
     org.springframework.boot.context.config: DEBUG
     com.zaxxer: DEBUG
-spring:
-  datasource:
-    database-key-name: rasppi5-01-lego-sandbox
-    hikari:
-      connection-timeout: 10000
-      idle-timeout: 30000
-      connection-test-query: SELECT 1
-      initialization-fail-timeout: 10000
-      auto-commit: false
-      login-timeout: 10000
-      minimum-idle: 5
-      maximum-pool-size: 5
-      validation-timeout: 10000
-      pool-name: rasppi5-01-mysql-jdbc-pool
+
