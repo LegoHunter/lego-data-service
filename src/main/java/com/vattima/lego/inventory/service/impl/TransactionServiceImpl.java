@@ -24,6 +24,8 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static net.lego.data.v2.dto.ExternalService.ExternalServiceType.BRICKLINK;
+
 @Component
 @RequiredArgsConstructor
 @Validated
@@ -87,7 +89,7 @@ public class TransactionServiceImpl implements TransactionService {
                     }
 
                     // Determine if Item exists or will be inserted.
-                    ExternalItem externalItem = externalItemDao.findByExternalNumber(itemInventoryRequest.getItemNumber()).orElseThrow(RuntimeException::new);
+                    ExternalItem externalItem = externalItemDao.findByExternalNumber(BRICKLINK.getExternalServiceId(), itemInventoryRequest.getItemNumber()).orElseThrow(RuntimeException::new);
                     Integer itemId = Optional.ofNullable(externalItem.getExternalServiceItem())
                             .map(ExternalServiceItem::getItemId)
                             .orElseGet(() -> {
