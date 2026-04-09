@@ -4,7 +4,7 @@ spring:
   jmx:
     enabled: off
   application:
-    name: Lego Data service
+    name: Lego Data Service
 
 management:
   info:

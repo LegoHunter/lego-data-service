@@ -11,4 +11,3 @@ logging:
     org.springframework.core.env: TRACE
     org.springframework.boot.context.config: DEBUG
     com.zaxxer: DEBUG
-

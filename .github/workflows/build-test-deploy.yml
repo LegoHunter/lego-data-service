@@ -25,7 +25,6 @@ jobs:
         with:
           java-version: '22'
           distribution: 'temurin'
-          architecture: x64
           cache: maven
 
       - name: Build and deploy Maven snapshot
