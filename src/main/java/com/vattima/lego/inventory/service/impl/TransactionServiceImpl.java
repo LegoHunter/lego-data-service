@@ -91,7 +91,7 @@ public class TransactionServiceImpl implements TransactionService {
                     // Determine if Item exists or will be inserted.
                     ExternalItem externalItem = externalItemDao.findByExternalNumber(BRICKLINK.getExternalServiceId(), itemInventoryRequest.getItemNumber()).orElseThrow(RuntimeException::new);
                     Integer itemId = Optional.ofNullable(externalItem.getExternalServiceItem())
-                            .map(ExternalServiceItem::getItemId)
+                            .map(ExternalServiceItem::getItemInventoryId)
                             .orElseGet(() -> {
                                 Item item = Item.builder()
                                         .itemNumber(itemNumber.get())
