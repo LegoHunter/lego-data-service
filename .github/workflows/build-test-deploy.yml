@@ -42,7 +42,6 @@ jobs:
           name: app-jar
           path: target/*.jar
 
-
   # -----------------------------------------
   # 2️⃣ Container Build & Push
   # -----------------------------------------
@@ -83,7 +82,6 @@ jobs:
           username: ${{ vars.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_TOKEN }}
 
-
   # -----------------------------------------
   # 3️⃣ Deploy
   # -----------------------------------------
@@ -102,6 +100,7 @@ jobs:
 
           OVERLAY=""
           NAMESPACE=""
+          IMAGE_TAG=""
 
           if [[ "${GITHUB_REF}" == refs/heads/feature/* ]]; then
             OVERLAY="sandbox"
