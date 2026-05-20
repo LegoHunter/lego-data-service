@@ -10,37 +10,32 @@ import com.vattima.lego.inventory.service.exception.NewOrUsedNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.lego.data.v2.dao.*;
-import net.lego.data.v2.dto.*;
-import net.lego.data.v2.enums.CurrencyCode;
+import io.legohunter.data.dao.*;
+import io.legohunter.data.dto.*;
+import io.legohunter.data.enums.CurrencyCode;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import static net.lego.data.v2.dto.ExternalService.ExternalServiceType.BRICKLINK;
+import static io.legohunter.data.dto.ExternalService.ExternalServiceType.BRICKLINK;
 
 @Component
 @RequiredArgsConstructor
 @Validated
 @Slf4j
 public class TransactionServiceImpl implements TransactionService {
-    private final ItemDao itemDao;
     private final ExternalItemDao externalItemDao;
+    private final ExternalItemInventoryDao externalItemInventoryDao;
     private final ConditionDao conditionDao;
     private final ItemInventoryDao itemInventoryDao;
     private final TransactionPlatformDao transactionPlatformDao;
     private final TransactionsDao transactionsDao;
     private final TransactionItemDao transactionItemDao;
     private final TransactionCostDao transactionCostDao;
-
-    private final Pattern itemNumberPattern = Pattern.compile("^([0-9,A-Z,a-z]*).*$");
 
     @Override
     public AddTransactionResponse addTransaction(@Valid AddTransactionRequest addTransactionRequest) {
@@ -81,27 +76,8 @@ public class TransactionServiceImpl implements TransactionService {
                 .forEach(transactionItemRequest -> {
                     ItemInventoryRequest itemInventoryRequest = transactionItemRequest.getItemInventory();
 
-                    // Lookup item.
-                    AtomicReference<String> itemNumber = new AtomicReference<>(itemInventoryRequest.getItemNumber());
-                    Matcher itemNumberMatcher = itemNumberPattern.matcher(itemNumber.get());
-                    if (itemNumberMatcher.find()) {
-                        itemNumber.set(itemNumberMatcher.group(1));
-                    }
-
                     // Determine if Item exists or will be inserted.
-                    ExternalItem externalItem = externalItemDao.findByExternalNumber(BRICKLINK.getExternalServiceId(), itemInventoryRequest.getItemNumber()).orElseThrow(RuntimeException::new);
-                    Integer itemId = Optional.ofNullable(externalItem.getExternalServiceItem())
-                            .map(ExternalServiceItem::getItemInventoryId)
-                            .orElseGet(() -> {
-                                Item item = Item.builder()
-                                        .itemNumber(itemNumber.get())
-                                        .itemName(externalItem.getName())
-                                        .notes(null)
-                                        .isObsolete(null)
-                                        .build();
-                                itemDao.insert(item);
-                                return item.getItemId();
-                            });
+                    ExternalItem externalItem = externalItemDao.findByExternalServiceAndNumber(BRICKLINK.getExternalServiceId(), itemInventoryRequest.getItemNumber()).orElseThrow(RuntimeException::new);
 
                     // Find Conditions
                     Integer itemConditionId = conditionDao.findByConditionCode(itemInventoryRequest.getItemConditionCode()).map(Condition::getConditionId).orElse(null);
@@ -109,23 +85,13 @@ public class TransactionServiceImpl implements TransactionService {
                     Integer instructionsConditionId = conditionDao.findByConditionCode(itemInventoryRequest.getInstructionsConditionCode()).map(Condition::getConditionId).orElse(null);
 
                     // Insert ItemInventory.
-                    ItemInventory itemInventory = ItemInventory.builder()
-                            .uuid(UUID.randomUUID().toString())
-                            .itemId(itemId)
-                            .boxNumber(itemInventoryRequest.getBoxNumber())
-                            .quantity(itemInventoryRequest.getQuantity())
-                            .description(itemInventoryRequest.getDescription())
-                            .active(itemInventoryRequest.getActive())
-                            .forSale(itemInventoryRequest.getForSale())
-                            .newOrUsed(itemInventoryRequest.getNewOrUsed())
-                            .completeness(itemInventoryRequest.getCompleteness())
-                            .itemConditionId(itemConditionId)
-                            .boxConditionId(boxConditionId)
-                            .instructionsConditionId(instructionsConditionId)
-                            .sealed(itemInventoryRequest.getSealed())
-                            .builtOnce(itemInventoryRequest.getForSale())
-                            .build();
+                    ItemInventory itemInventory = toItemInventory(itemInventoryRequest, itemConditionId, boxConditionId, instructionsConditionId);
                     itemInventoryDao.insert(itemInventory);
+
+                    externalItemInventoryDao.insert(ExternalItemInventory.builder()
+                            .externalItemId(externalItem.getExternalItemId())
+                            .itemInventoryId(itemInventory.getItemInventoryId())
+                            .build());
 
                     // Insert TransactionItem.
                     TransactionItem transactionItem = TransactionItem.builder()
@@ -153,49 +119,27 @@ public class TransactionServiceImpl implements TransactionService {
         return AddTransactionResponse.builder()
                 .transactionId(transactions.getTransactionId())
                 .build();
+    }
 
-
-//        final String itemNumber = addItemInventoryRequest.getItemNumber();
-//
-//        ItemInventory.ItemInventoryBuilder itemInventoryBuilder = ItemInventory.builder();
-//
-//        // Find itemNumber in external items
-//        Optional<ExternalItem> externalItem = externalItemDao.findByExternalNumber(itemNumber);
-//
-//        // If external item not found, attempt to find item using itemNumber and then get external item.
-//        if (externalItem.isEmpty()) {
-//            externalItem = itemDao.findByItemNumber(itemNumber)
-//                    .flatMap(foundItem -> externalItemDao.findByItemId(foundItem.getItemId()));
-//        }
-//
-//        // If found, set itemId; otherwise throw exception
-//        externalItem.ifPresentOrElse(ei -> {
-//            itemInventoryBuilder.itemId(ei.getExternalServiceItem().getItemId());
-//        }, () -> {
-//            throw new ItemNumberNotFoundException(itemNumber);
-//        });
-//
-//        // Check condition codes if not null
-//        validateAndSetCondition(addItemInventoryRequest.getBoxConditionCode(), itemInventoryBuilder::boxConditionId);
-//        validateAndSetCondition(addItemInventoryRequest.getItemConditionCode(), itemInventoryBuilder::itemConditionId);
-//        validateAndSetCondition(addItemInventoryRequest.getInstructionsConditionCode(), itemInventoryBuilder::instructionsConditionId);
-//
-//        Optional.ofNullable(addItemInventoryRequest.getDescription()).ifPresent(itemInventoryBuilder::description);
-//        Optional.ofNullable(addItemInventoryRequest.getBoxNumber()).ifPresent(itemInventoryBuilder::boxNumber);
-//
-//        validateAndSetNewOrUsed(addItemInventoryRequest.getNewOrUsed(), itemInventoryBuilder::newOrUsed);
-//        validateAndSetCompleteness(addItemInventoryRequest.getCompleteness(), itemInventoryBuilder::completeness);
-//        itemInventoryBuilder.sealed(addItemInventoryRequest.getSealed());
-//        itemInventoryBuilder.builtOnce(addItemInventoryRequest.getBuiltOnce());
-//        itemInventoryBuilder.forSale(addItemInventoryRequest.getForSale());
-//        itemInventoryBuilder.quantity(addItemInventoryRequest.getQuantity());
-//        itemInventoryBuilder.active(addItemInventoryRequest.getActive());
-//        itemInventoryBuilder.uuid(UUID.randomUUID().toString());
-//
-//        ItemInventory itemInventory = itemInventoryBuilder.build();
-//        itemInventoryDao.insert(itemInventory);
-//        log.info("Item Inventory {}", itemInventory);
-
+    private ItemInventory toItemInventory(
+            ItemInventoryRequest itemInventoryRequest,
+            Integer itemConditionId,
+            Integer boxConditionId,
+            Integer instructionsConditionId) {
+        ItemInventory itemInventory = new ItemInventory();
+        itemInventory.setUuid(UUID.randomUUID().toString());
+        itemInventory.setBoxNumber(itemInventoryRequest.getBoxNumber());
+        itemInventory.setDescription(itemInventoryRequest.getDescription());
+        itemInventory.setActive(itemInventoryRequest.getActive());
+        itemInventory.setForSale(itemInventoryRequest.getForSale());
+        itemInventory.setNewOrUsed(itemInventoryRequest.getNewOrUsed());
+        itemInventory.setCompleteness(itemInventoryRequest.getCompleteness());
+        itemInventory.setItemConditionId(itemConditionId);
+        itemInventory.setBoxConditionId(boxConditionId);
+        itemInventory.setInstructionsConditionId(instructionsConditionId);
+        itemInventory.setSealed(itemInventoryRequest.getSealed());
+        itemInventory.setBuiltOnce(itemInventoryRequest.getBuiltOnce());
+        return itemInventory;
     }
 
     private void validateAndSetCondition(final String conditionCode, final Consumer<Integer> consumer) {

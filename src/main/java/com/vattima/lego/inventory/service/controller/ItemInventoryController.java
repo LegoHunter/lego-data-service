@@ -2,8 +2,8 @@ package com.vattima.lego.inventory.service.controller;
 
 import com.vattima.lego.inventory.service.logging.LogExecution;
 import lombok.RequiredArgsConstructor;
-import net.lego.data.v2.dao.ItemInventoryDao;
-import net.lego.data.v2.dto.ItemInventory;
+import io.legohunter.data.dao.ItemInventoryDao;
+import io.legohunter.data.dto.ItemInventory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
