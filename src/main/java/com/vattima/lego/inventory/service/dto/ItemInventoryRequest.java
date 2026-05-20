@@ -6,8 +6,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 import lombok.Data;
-import net.lego.data.v2.validation.ConditionCodeExists;
-import net.lego.data.v2.validation.ItemNumberExists;
+import io.legohunter.data.validation.ConditionCodeExists;
+import io.legohunter.data.validation.ItemNumberExists;
 import org.hibernate.validator.constraints.Range;
 
 @Data

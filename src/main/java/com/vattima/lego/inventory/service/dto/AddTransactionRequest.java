@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 import lombok.Data;
-import net.lego.data.v2.validation.TransactionPlatformExists;
+import io.legohunter.data.validation.TransactionPlatformExists;
 
 import java.time.ZonedDateTime;
 import java.util.List;

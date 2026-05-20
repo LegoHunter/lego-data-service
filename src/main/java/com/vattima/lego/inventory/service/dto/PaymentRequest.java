@@ -3,7 +3,7 @@ package com.vattima.lego.inventory.service.dto;
 import jakarta.validation.Valid;
 import lombok.Builder;
 import lombok.Data;
-import net.lego.data.v2.enums.CurrencyCode;
+import io.legohunter.data.enums.CurrencyCode;
 
 import java.time.ZonedDateTime;
 

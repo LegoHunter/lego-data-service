@@ -6,6 +6,10 @@ spring:
   application:
     name: Lego Data Service
 
+lego:
+  data:
+    enabled: true
+
 management:
   info:
     git:

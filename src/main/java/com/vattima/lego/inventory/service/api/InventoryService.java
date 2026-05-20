@@ -1,6 +1,6 @@
 package com.vattima.lego.inventory.service.api;
 
-import net.lego.data.v2.dto.ItemInventory;
+import io.legohunter.data.dto.ItemInventory;
 
 import java.util.List;
 
