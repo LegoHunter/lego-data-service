@@ -4,7 +4,11 @@ spring:
   jmx:
     enabled: off
   application:
-    name: Lego Data service
+    name: Lego Data Service
+
+lego:
+  data:
+    enabled: true
 
 management:
   info:
@@ -16,45 +20,6 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus,startup
-
-  datasource:
-    database-key-name: site5-dev-lego
-    hikari:
-      connection-timeout: 180000
-      idle-timeout: 60000
-      connection-test-query: SELECT 1
-      initialization-fail-timeout: 60000
-      auto-commit: false
-      login-timeout: 60000
-      minimum-idle: 40
-      maximum-pool-size: 40
-      validation-timeout: 60000
-      pool-name: site5-mysql-jdbc-pool
-      max-lifetime: 10000
-
-#      security:
-#        protocol: SASL_SSL
-#      properties:
-#        sasl.mechanism: AWS_MSK_IAM
-#        sasl.jaas.config: "software.amazon.msk.auth.iam.IAMLoginModule required ;"
-#        sasl.client.callback.handler.class: software.amazon.msk.auth.iam.IAMClientCallbackHandler
-#    bootstrap-servers:
-#      - b-3-public.legocluster.zito4l.c9.kafka.us-east-1.amazonaws.com:9198
-#      - b-1-public.legocluster.zito4l.c9.kafka.us-east-1.amazonaws.com:9198
-#      - b-4-public.legocluster.zito4l.c9.kafka.us-east-1.amazonaws.com:9198
-#    producer:
-#      template:
-#        default-topic: aws-chat-room
-#      bootstrap-servers:
-#        - b-3-public.legocluster.zito4l.c9.kafka.us-east-1.amazonaws.com:9198
-#        - b-1-public.legocluster.zito4l.c9.kafka.us-east-1.amazonaws.com:9198
-#        - b-4-public.legocluster.zito4l.c9.kafka.us-east-1.amazonaws.com:9198
-#      security:
-#        protocol: SASL_SSL
-#      properties:
-#        sasl.mechanism: AWS_MSK_IAM
-#        sasl.jaas.config: "software.amazon.msk.auth.iam.IAMLoginModule required ;"
-#        sasl.client.callback.handler.class: software.amazon.msk.auth.iam.IAMClientCallbackHandler
 
 aws-credentials:
   client-config-dir: C:\Users\tvatt\.credentials\aws
@@ -81,4 +46,4 @@ events:
 
 logging:
   level:
-    root: info
+    root: INFO

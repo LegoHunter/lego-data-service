@@ -36,6 +36,15 @@ spec:
 #            periodSeconds: 5
 #            timeoutSeconds: 2
 
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 6
+            timeoutSeconds: 5
+
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
@@ -45,43 +54,23 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 10
 
-          readinessProbe:
-            httpGet:
-              path: /actuator/health/readiness
-              port: 8080
-            initialDelaySeconds: 60
-            periodSeconds: 5
-            timeoutSeconds: 3
-            failureThreshold: 5
-
           env:
             - name: JAVA_TOOL_OPTIONS
               value: >-
-                -XX:MaxRAMPercentage=75
-                -XX:InitialRAMPercentage=50
+                -Xms1g
+                -Xmx1g
+                -XX:MaxDirectMemorySize=256m
+                -XX:+UseG1GC
+                -XX:MaxGCPauseMillis=200
                 -XX:+UseContainerSupport
             - name: ABC
               value: "1234"
           volumeMounts:
-            - name: bricklink
-              mountPath: /etc/.credentials/bricklink
-            - name: database
-              mountPath: /etc/.credentials/database
+            - name: services-sandbox-external-secret
+              mountPath: /etc/.credentials
+              readOnly: true
       volumes:
-        - name: bricklink
-          projected:
-            sources:
-              - secret:
-                  name: bricklink-client-api-keys-secret
-                  items:
-                    - key: bricklink-client-api-keys.yml
-                      path: bricklink-client-api-keys.yml
-              - secret:
-                  name: bricklink-web-secret
-                  items:
-                    - key: bricklink-web.yml
-                      path: bricklink-web.yml
-        - name: database
+        - name: services-sandbox-external-secret
           secret:
-            secretName: database-configuration-secret
+            secretName: services-sandbox-external-secret
       restartPolicy: Always

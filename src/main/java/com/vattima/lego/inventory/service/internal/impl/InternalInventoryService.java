@@ -2,8 +2,8 @@ package com.vattima.lego.inventory.service.internal.impl;
 
 import com.vattima.lego.inventory.service.api.InventoryService;
 import lombok.RequiredArgsConstructor;
-import net.lego.data.v2.dao.ItemInventoryDao;
-import net.lego.data.v2.dto.ItemInventory;
+import io.legohunter.data.dao.ItemInventoryDao;
+import io.legohunter.data.dto.ItemInventory;
 
 import java.util.List;
 

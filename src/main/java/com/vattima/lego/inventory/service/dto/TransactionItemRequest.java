@@ -5,7 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 import lombok.Data;
-import net.lego.data.v2.validation.TransactionTypeExists;
+import io.legohunter.data.validation.TransactionTypeExists;
 
 import java.util.List;
 
