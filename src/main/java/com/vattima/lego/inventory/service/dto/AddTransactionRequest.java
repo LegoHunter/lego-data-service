@@ -1,5 +1,6 @@
 package com.vattima.lego.inventory.service.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.vattima.lego.inventory.service.validation.UniqueCostTypeCode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -9,7 +10,7 @@ import lombok.Builder;
 import lombok.Data;
 import io.legohunter.data.validation.TransactionPlatformExists;
 
-import java.time.ZonedDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -17,7 +18,8 @@ import java.util.List;
 @Valid
 public class AddTransactionRequest {
     @NotNull
-    private ZonedDateTime transactionDateTime;
+    @JsonAlias("transactionDateTime")
+    private LocalDate transactionDate;
 
     @NotNull
     private Long fromPartyId;

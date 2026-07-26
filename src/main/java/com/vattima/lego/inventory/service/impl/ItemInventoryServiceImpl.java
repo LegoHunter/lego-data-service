@@ -122,7 +122,7 @@ public class ItemInventoryServiceImpl implements ItemInventoryService {
                 .orElseThrow(() -> new ValidationException("Transaction platform was not found"));
 
         Transactions transaction = Transactions.builder()
-                .transactionDateTime(request.getTransactionDateTime())
+                .transactionDate(request.getTransactionDate())
                 .fromPartyId(request.getFromPartyId())
                 .toPartyId(request.getToPartyId())
                 .notes(request.getNotes())

@@ -1,5 +1,6 @@
 package com.vattima.lego.inventory.service.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.vattima.lego.inventory.service.validation.UniqueCostTypeCode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
@@ -12,7 +13,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.ZonedDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -21,7 +22,8 @@ import java.util.List;
 @AllArgsConstructor
 public class AddItemInventoryRequest {
     @NotNull
-    private ZonedDateTime transactionDateTime;
+    @JsonAlias("transactionDateTime")
+    private LocalDate transactionDate;
 
     @NotNull
     @PartyExists

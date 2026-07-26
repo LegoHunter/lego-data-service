@@ -13,7 +13,7 @@ import io.legohunter.data.enums.CurrencyCode;
 import io.legohunter.data.validation.PaymentPlatformExists;
 
 import java.math.BigDecimal;
-import java.time.ZonedDateTime;
+import java.time.LocalDate;
 
 @Data
 @Builder
@@ -22,7 +22,7 @@ import java.time.ZonedDateTime;
 @Valid
 public class PaymentRequest {
     @NotNull
-    private ZonedDateTime paymentDate;
+    private LocalDate paymentDate;
 
     @NotBlank
     @ValueOfEnum(enumClass = CurrencyCode.class)

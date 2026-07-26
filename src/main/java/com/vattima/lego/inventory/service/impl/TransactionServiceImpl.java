@@ -48,7 +48,7 @@ public class TransactionServiceImpl implements TransactionService {
 
         // Insert Transaction.
         Transactions transactions = Transactions.builder()
-                .transactionDateTime(addTransactionRequest.getTransactionDateTime())
+                .transactionDate(addTransactionRequest.getTransactionDate())
                 .fromPartyId(addTransactionRequest.getFromPartyId())
                 .toPartyId(addTransactionRequest.getToPartyId())
                 .notes(addTransactionRequest.getNotes())

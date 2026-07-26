@@ -35,7 +35,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.ZonedDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -405,7 +405,7 @@ class ItemInventoryServiceImplTest {
 
     private AddItemInventoryRequest acquisitionRequest() {
         return AddItemInventoryRequest.builder()
-                .transactionDateTime(ZonedDateTime.parse("2026-05-20T10:00:00-04:00"))
+                .transactionDate(LocalDate.parse("2026-05-20"))
                 .fromPartyId(1L)
                 .toPartyId(2L)
                 .notes("Order notes")
@@ -418,7 +418,7 @@ class ItemInventoryServiceImplTest {
                         .notes("item price")
                         .build()))
                 .payments(List.of(PaymentRequest.builder()
-                        .paymentDate(ZonedDateTime.parse("2026-05-20T10:05:00-04:00"))
+                        .paymentDate(LocalDate.parse("2026-05-20"))
                         .currencyCode("USD")
                         .sellerCurrencyCode("USD")
                         .exchangeRate(new BigDecimal("1.00000"))

@@ -27,3 +27,4 @@ Compatibility:
 - `transactionPlatformName` is the forward-looking request field.
 - `platformName` is temporarily accepted for backwards compatibility.
 - Requests are rejected if both fields are provided with different values.
+- `transactionDate` and `paymentDate` are date-only values. `transactionDateTime` is accepted as a temporary JSON alias for inbound compatibility, but it must contain a date-only value.
