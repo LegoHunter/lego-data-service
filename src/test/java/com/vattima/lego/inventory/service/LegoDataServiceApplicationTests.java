@@ -2,9 +2,11 @@ package com.vattima.lego.inventory.service;
 
 import io.legohunter.data.dao.CarrierDao;
 import io.legohunter.data.dao.ConditionDao;
-import io.legohunter.data.dao.ExternalItemDao;
-import io.legohunter.data.dao.ExternalItemInventoryDao;
+import io.legohunter.data.dao.ExternalCatalogItemDao;
 import io.legohunter.data.dao.ItemInventoryDao;
+import io.legohunter.data.dao.ItemInventoryExternalCatalogItemDao;
+import io.legohunter.data.dao.PaymentDao;
+import io.legohunter.data.dao.PaymentPlatformDao;
 import io.legohunter.data.dao.TransactionCostDao;
 import io.legohunter.data.dao.TransactionItemDao;
 import io.legohunter.data.dao.TransactionPlatformDao;
@@ -28,13 +30,19 @@ class LegoDataServiceApplicationTests {
 	private ConditionDao conditionDao;
 
 	@MockitoBean
-	private ExternalItemDao externalItemDao;
+	private ExternalCatalogItemDao externalCatalogItemDao;
 
 	@MockitoBean
-	private ExternalItemInventoryDao externalItemInventoryDao;
+	private ItemInventoryExternalCatalogItemDao itemInventoryExternalCatalogItemDao;
 
 	@MockitoBean
 	private ItemInventoryDao itemInventoryDao;
+
+	@MockitoBean
+	private PaymentDao paymentDao;
+
+	@MockitoBean
+	private PaymentPlatformDao paymentPlatformDao;
 
 	@MockitoBean
 	private TransactionCostDao transactionCostDao;

@@ -17,12 +17,14 @@
 
     <properties>
         <java.version>22</java.version>
-        <lego-data.version>1.3.0-SNAPSHOT</lego-data.version>
+        <lego-data.version>1.1.0-SNAPSHOT</lego-data.version>
         <aws.java.sdk.version>2.28.18</aws.java.sdk.version>
         <mybatis-spring-boot-starter.version>3.0.3</mybatis-spring-boot-starter.version>
         <lombok.version>1.18.42</lombok.version>
         <logback-classic.version>1.5.6</logback-classic.version>
         <logback-access.version>2.0.2</logback-access.version>
+        <jacoco.version>0.8.13</jacoco.version>
+        <surefire.argLine></surefire.argLine>
         <github.organization>LegoHunter</github.organization>
         <github.repo.url>https://github.com/${github.organization}/lego-data-service.git</github.repo.url>
     </properties>
@@ -100,7 +102,7 @@
         <dependency>
             <groupId>io-legohunter</groupId>
             <artifactId>lego-data-starter</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
+            <version>${lego-data.version}</version>
         </dependency>
 
         <dependency>
@@ -253,8 +255,30 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-javaagent:${settings.localRepository}/net/bytebuddy/byte-buddy-agent/${byte-buddy.version}/byte-buddy-agent-${byte-buddy.version}.jar -Xshare:off</argLine>
+                    <argLine>@{surefire.argLine} -javaagent:${settings.localRepository}/net/bytebuddy/byte-buddy-agent/${byte-buddy.version}/byte-buddy-agent-${byte-buddy.version}.jar -Xshare:off</argLine>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                        <configuration>
+                            <propertyName>surefire.argLine</propertyName>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.openrewrite.maven</groupId>

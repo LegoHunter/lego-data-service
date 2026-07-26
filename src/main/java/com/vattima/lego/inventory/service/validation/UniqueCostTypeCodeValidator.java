@@ -12,8 +12,12 @@ import java.util.stream.Collectors;
 public class UniqueCostTypeCodeValidator implements ConstraintValidator<UniqueCostTypeCode, List<CostRequest>> {
     @Override
     public boolean isValid(List<CostRequest> costRequests, ConstraintValidatorContext context) {
+        if (costRequests == null || costRequests.isEmpty()) {
+            return true;
+        }
 
         Map<String, Long> duplicatesMap = costRequests.stream()
+                .filter(costRequest -> costRequest != null && costRequest.getCostTypeCode() != null)
                 .map(CostRequest::getCostTypeCode)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
                 .entrySet()
