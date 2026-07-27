@@ -17,7 +17,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
 import java.util.Set;
 
 @RestController
@@ -35,42 +34,10 @@ public class ItemInventoryController {
         return ResponseEntity.ok(itemInventoryDao.findAll());
     }
 
-    @GetMapping("/search")
+    @PostMapping("/search")
     @LogExecution
-    public ResponseEntity<InventorySearchResponse> search(
-            @RequestParam(required = false) String itemNumber,
-            @RequestParam(required = false) String description,
-            @RequestParam(required = false) Integer boxNumber,
-            @RequestParam(required = false) String inventoryStateCode,
-            @RequestParam(required = false) String saleIntentCode,
-            @RequestParam(required = false) Boolean active,
-            @RequestParam(required = false) String newOrUsed,
-            @RequestParam(required = false) String completeness,
-            @RequestParam(required = false) String itemConditionCode,
-            @RequestParam(required = false) String boxConditionCode,
-            @RequestParam(required = false) String instructionsConditionCode,
-            @RequestParam(required = false) LocalDate transactionDateFrom,
-            @RequestParam(required = false) LocalDate transactionDateTo,
-            @RequestParam(defaultValue = "100") Integer limit,
-            @RequestParam(defaultValue = "0") Integer offset
-    ) {
-        return ResponseEntity.ok(itemInventoryService.searchInventory(ItemInventorySearchCriteria.builder()
-                .itemNumber(itemNumber)
-                .description(description)
-                .boxNumber(boxNumber)
-                .inventoryStateCode(inventoryStateCode)
-                .saleIntentCode(saleIntentCode)
-                .active(active)
-                .newOrUsed(newOrUsed)
-                .completeness(completeness)
-                .itemConditionCode(itemConditionCode)
-                .boxConditionCode(boxConditionCode)
-                .instructionsConditionCode(instructionsConditionCode)
-                .transactionDateFrom(transactionDateFrom)
-                .transactionDateTo(transactionDateTo)
-                .limit(limit)
-                .offset(offset)
-                .build()));
+    public ResponseEntity<InventorySearchResponse> search(@RequestBody(required = false) ItemInventorySearchCriteria criteria) {
+        return ResponseEntity.ok(itemInventoryService.searchInventory(criteria));
     }
 
     @GetMapping("/uuid/{uuid}")

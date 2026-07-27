@@ -32,7 +32,7 @@ Compatibility:
 
 Phase 2 read/search/correction behavior:
 
-- `GET /api/v1/inventory/search` searches owned inventory using optional filters for item number, description, box number, inventory state, sale intent, active flag, physical item facts, condition codes, transaction date range, limit, and offset.
+- `POST /api/v1/inventory/search` searches owned inventory using an optional `ItemInventorySearchCriteria` request body with filters for item number, description, box number, inventory state, sale intent, active flag, physical item facts, condition codes, transaction date range, limit, and offset.
 - `GET /api/v1/transactions/{transactionId}` returns the complete persisted acquisition transaction tree.
 - `PATCH /api/v1/transactions/{transactionId}` updates transaction header fields such as date, parties, transaction platform, order id, and notes.
 - `POST /api/v1/transactions/{transactionId}/costs`, `PUT /api/v1/transactions/{transactionId}/costs/{transactionCostId}`, and `DELETE /api/v1/transactions/{transactionId}/costs/{transactionCostId}` add, update, or delete one transaction-level cost row.

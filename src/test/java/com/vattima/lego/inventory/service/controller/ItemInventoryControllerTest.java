@@ -22,7 +22,6 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -103,38 +102,44 @@ class ItemInventoryControllerTest {
     }
 
     @Test
-    void searchBuildsCriteriaAndDelegatesToService() {
+    void searchAcceptsCriteriaBodyAndDelegatesToService() {
         InventorySearchResponse serviceResponse = InventorySearchResponse.builder().total(1).limit(25).offset(5).build();
-        when(itemInventoryService.searchInventory(any(ItemInventorySearchCriteria.class))).thenReturn(serviceResponse);
+        ItemInventorySearchCriteria criteria = ItemInventorySearchCriteria.builder()
+                .itemNumber("6390-1")
+                .description("Main Street")
+                .boxNumber(12)
+                .inventoryStateCode("AVAILABLE")
+                .saleIntentCode("KEEP")
+                .active(true)
+                .newOrUsed("U")
+                .completeness("C")
+                .itemConditionCode("VG")
+                .boxConditionCode("G")
+                .instructionsConditionCode("E")
+                .transactionDateFrom(java.time.LocalDate.parse("2026-01-01"))
+                .transactionDateTo(java.time.LocalDate.parse("2026-12-31"))
+                .limit(25)
+                .offset(5)
+                .build();
+        when(itemInventoryService.searchInventory(criteria)).thenReturn(serviceResponse);
 
-        ResponseEntity<InventorySearchResponse> response = controller().search(
-                "6390-1",
-                "Main Street",
-                12,
-                "AVAILABLE",
-                "KEEP",
-                true,
-                "U",
-                "C",
-                "VG",
-                "G",
-                "E",
-                java.time.LocalDate.parse("2026-01-01"),
-                java.time.LocalDate.parse("2026-12-31"),
-                25,
-                5);
+        ResponseEntity<InventorySearchResponse> response = controller().search(criteria);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getBody()).isSameAs(serviceResponse);
-        org.mockito.ArgumentCaptor<ItemInventorySearchCriteria> criteriaCaptor = org.mockito.ArgumentCaptor.forClass(ItemInventorySearchCriteria.class);
-        verify(itemInventoryService).searchInventory(criteriaCaptor.capture());
-        assertThat(criteriaCaptor.getValue().getItemNumber()).isEqualTo("6390-1");
-        assertThat(criteriaCaptor.getValue().getDescription()).isEqualTo("Main Street");
-        assertThat(criteriaCaptor.getValue().getBoxNumber()).isEqualTo(12);
-        assertThat(criteriaCaptor.getValue().getInventoryStateCode()).isEqualTo("AVAILABLE");
-        assertThat(criteriaCaptor.getValue().getSaleIntentCode()).isEqualTo("KEEP");
-        assertThat(criteriaCaptor.getValue().getLimit()).isEqualTo(25);
-        assertThat(criteriaCaptor.getValue().getOffset()).isEqualTo(5);
+        verify(itemInventoryService).searchInventory(criteria);
+    }
+
+    @Test
+    void searchAllowsMissingBodyForDefaultSearch() {
+        InventorySearchResponse serviceResponse = InventorySearchResponse.builder().total(0).limit(100).offset(0).build();
+        when(itemInventoryService.searchInventory(null)).thenReturn(serviceResponse);
+
+        ResponseEntity<InventorySearchResponse> response = controller().search(null);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).isSameAs(serviceResponse);
+        verify(itemInventoryService).searchInventory(null);
     }
 
     @Test
