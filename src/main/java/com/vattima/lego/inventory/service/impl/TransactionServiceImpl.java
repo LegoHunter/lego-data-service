@@ -21,17 +21,17 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 
-import static io.legohunter.data.dto.ExternalService.ExternalServiceType.BRICKLINK;
+import static io.legohunter.data.dto.ExternalService.Service.BRICKLINK;
 
 @Component
 @RequiredArgsConstructor
 @Validated
 @Slf4j
 public class TransactionServiceImpl implements TransactionService {
-    private final ExternalItemDao externalItemDao;
-    private final ExternalItemInventoryDao externalItemInventoryDao;
     private final ConditionDao conditionDao;
+    private final ExternalCatalogItemDao externalCatalogItemDao;
     private final ItemInventoryDao itemInventoryDao;
+    private final ItemInventoryExternalCatalogItemDao itemInventoryExternalCatalogItemDao;
     private final TransactionPlatformDao transactionPlatformDao;
     private final TransactionsDao transactionsDao;
     private final TransactionItemDao transactionItemDao;
@@ -48,7 +48,7 @@ public class TransactionServiceImpl implements TransactionService {
 
         // Insert Transaction.
         Transactions transactions = Transactions.builder()
-                .transactionDateTime(addTransactionRequest.getTransactionDateTime())
+                .transactionDate(addTransactionRequest.getTransactionDate())
                 .fromPartyId(addTransactionRequest.getFromPartyId())
                 .toPartyId(addTransactionRequest.getToPartyId())
                 .notes(addTransactionRequest.getNotes())
@@ -65,7 +65,7 @@ public class TransactionServiceImpl implements TransactionService {
                                 TransactionCost.builder()
                                         .transactionId(transactions.getTransactionId())
                                         .costTypeCode(costRequest.getCostTypeCode())
-                                        .amount(costRequest.getAmount())
+                                        .amount(costRequest.getAmount().doubleValue())
                                         .currencyCode(CurrencyCode.valueOf(costRequest.getCurrencyCode()))
                                         .notes(costRequest.getNotes())
                                         .build()
@@ -77,7 +77,7 @@ public class TransactionServiceImpl implements TransactionService {
                     ItemInventoryRequest itemInventoryRequest = transactionItemRequest.getItemInventory();
 
                     // Determine if Item exists or will be inserted.
-                    ExternalItem externalItem = externalItemDao.findByExternalServiceAndNumber(BRICKLINK.getExternalServiceId(), itemInventoryRequest.getItemNumber()).orElseThrow(RuntimeException::new);
+                    ExternalCatalogItem externalCatalogItem = externalCatalogItemDao.findByExternalServiceIdAndExternalItemKey(BRICKLINK.getExternalServiceId(), itemInventoryRequest.getItemNumber()).orElseThrow(RuntimeException::new);
 
                     // Find Conditions
                     Integer itemConditionId = conditionDao.findByConditionCode(itemInventoryRequest.getItemConditionCode()).map(Condition::getConditionId).orElse(null);
@@ -88,9 +88,10 @@ public class TransactionServiceImpl implements TransactionService {
                     ItemInventory itemInventory = toItemInventory(itemInventoryRequest, itemConditionId, boxConditionId, instructionsConditionId);
                     itemInventoryDao.insert(itemInventory);
 
-                    externalItemInventoryDao.insert(ExternalItemInventory.builder()
-                            .externalItemId(externalItem.getExternalItemId())
+                    itemInventoryExternalCatalogItemDao.insert(ItemInventoryExternalCatalogItem.builder()
+                            .externalCatalogItemId(externalCatalogItem.getExternalCatalogItemId())
                             .itemInventoryId(itemInventory.getItemInventoryId())
+                            .primary(true)
                             .build());
 
                     // Insert TransactionItem.
@@ -110,7 +111,7 @@ public class TransactionServiceImpl implements TransactionService {
                                     .map(costRequest -> TransactionItemCost.builder()
                                             .costTypeCode(costRequest.getCostTypeCode())
                                             .currencyCode(costRequest.getCurrencyCode())
-                                            .amount(costRequest.getAmount())
+                                            .amount(costRequest.getAmount().doubleValue())
                                             .notes(costRequest.getNotes())
                                             .build()
                                     ).toList());
@@ -131,7 +132,12 @@ public class TransactionServiceImpl implements TransactionService {
         itemInventory.setBoxNumber(itemInventoryRequest.getBoxNumber());
         itemInventory.setDescription(itemInventoryRequest.getDescription());
         itemInventory.setActive(itemInventoryRequest.getActive());
-        itemInventory.setForSale(itemInventoryRequest.getForSale());
+        itemInventory.setForSale(false);
+        itemInventory.setInventoryStateCode("AVAILABLE");
+        itemInventory.setInventoryStateChangedAt(java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC));
+        itemInventory.setSaleIntentCode("KEEP");
+        itemInventory.setSaleIntentUpdatedAt(java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC));
+        itemInventory.setSaleIntentNote("Defaulted by acquisition intake");
         itemInventory.setNewOrUsed(itemInventoryRequest.getNewOrUsed());
         itemInventory.setCompleteness(itemInventoryRequest.getCompleteness());
         itemInventory.setItemConditionId(itemConditionId);

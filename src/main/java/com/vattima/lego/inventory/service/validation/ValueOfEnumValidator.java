@@ -31,7 +31,7 @@ public class ValueOfEnumValidator implements ConstraintValidator<ValueOfEnum, Ch
             return true;
         } else {
             context.disableDefaultConstraintViolation();
-            context.buildConstraintViolationWithTemplate(String.format("Must be one of %s", acceptedValues))
+            context.buildConstraintViolationWithTemplate(String.format("Value [%s] is invalid. Must be one of %s", value, acceptedValues))
                     .addConstraintViolation();
             return false;
         }

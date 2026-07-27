@@ -5,17 +5,17 @@ import com.vattima.lego.inventory.service.dto.CostRequest;
 import com.vattima.lego.inventory.service.dto.ItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.TransactionItemRequest;
 import io.legohunter.data.dao.ConditionDao;
-import io.legohunter.data.dao.ExternalItemDao;
-import io.legohunter.data.dao.ExternalItemInventoryDao;
+import io.legohunter.data.dao.ExternalCatalogItemDao;
 import io.legohunter.data.dao.ItemInventoryDao;
+import io.legohunter.data.dao.ItemInventoryExternalCatalogItemDao;
 import io.legohunter.data.dao.TransactionCostDao;
 import io.legohunter.data.dao.TransactionItemDao;
 import io.legohunter.data.dao.TransactionPlatformDao;
 import io.legohunter.data.dao.TransactionsDao;
 import io.legohunter.data.dto.Condition;
-import io.legohunter.data.dto.ExternalItem;
-import io.legohunter.data.dto.ExternalItemInventory;
+import io.legohunter.data.dto.ExternalCatalogItem;
 import io.legohunter.data.dto.ItemInventory;
+import io.legohunter.data.dto.ItemInventoryExternalCatalogItem;
 import io.legohunter.data.dto.TransactionItem;
 import io.legohunter.data.dto.TransactionPlatform;
 import io.legohunter.data.dto.Transactions;
@@ -26,7 +26,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.ZonedDateTime;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,10 +41,10 @@ import static org.mockito.Mockito.when;
 class TransactionServiceImplTest {
 
     @Mock
-    private ExternalItemDao externalItemDao;
+    private ExternalCatalogItemDao externalCatalogItemDao;
 
     @Mock
-    private ExternalItemInventoryDao externalItemInventoryDao;
+    private ItemInventoryExternalCatalogItemDao itemInventoryExternalCatalogItemDao;
 
     @Mock
     private ConditionDao conditionDao;
@@ -74,11 +75,12 @@ class TransactionServiceImplTest {
                         .transactionPlatformName("BRICKLINK")
                         .build()));
 
-        ExternalItem externalItem = new ExternalItem();
-        externalItem.setExternalItemId(42);
-        externalItem.setExternalNumber("1234-1");
-        when(externalItemDao.findByExternalServiceAndNumber(2, "1234-1"))
-                .thenReturn(Optional.of(externalItem));
+        ExternalCatalogItem externalCatalogItem = ExternalCatalogItem.builder()
+                .externalCatalogItemId(42)
+                .externalItemKey("1234-1")
+                .build();
+        when(externalCatalogItemDao.findByExternalServiceIdAndExternalItemKey(2, "1234-1"))
+                .thenReturn(Optional.of(externalCatalogItem));
 
         when(conditionDao.findByConditionCode("N"))
                 .thenReturn(Optional.of(Condition.builder().conditionId(1).conditionCode("N").build()));
@@ -116,10 +118,11 @@ class TransactionServiceImplTest {
         assertThat(itemInventory.getInstructionsConditionId()).isEqualTo(2);
         assertThat(itemInventory.getBuiltOnce()).isFalse();
 
-        ArgumentCaptor<ExternalItemInventory> externalItemInventoryCaptor = ArgumentCaptor.forClass(ExternalItemInventory.class);
-        verify(externalItemInventoryDao).insert(externalItemInventoryCaptor.capture());
-        assertThat(externalItemInventoryCaptor.getValue().getExternalItemId()).isEqualTo(42);
-        assertThat(externalItemInventoryCaptor.getValue().getItemInventoryId()).isEqualTo(202);
+        ArgumentCaptor<ItemInventoryExternalCatalogItem> catalogLinkCaptor = ArgumentCaptor.forClass(ItemInventoryExternalCatalogItem.class);
+        verify(itemInventoryExternalCatalogItemDao).insert(catalogLinkCaptor.capture());
+        assertThat(catalogLinkCaptor.getValue().getExternalCatalogItemId()).isEqualTo(42);
+        assertThat(catalogLinkCaptor.getValue().getItemInventoryId()).isEqualTo(202);
+        assertThat(catalogLinkCaptor.getValue().getPrimary()).isTrue();
 
         ArgumentCaptor<TransactionItem> transactionItemCaptor = ArgumentCaptor.forClass(TransactionItem.class);
         verify(transactionItemDao).insert(transactionItemCaptor.capture());
@@ -130,7 +133,7 @@ class TransactionServiceImplTest {
 
     private AddTransactionRequest transactionRequest() {
         return AddTransactionRequest.builder()
-                .transactionDateTime(ZonedDateTime.parse("2026-05-20T10:00:00-04:00"))
+                .transactionDate(LocalDate.parse("2026-05-20"))
                 .fromPartyId(1L)
                 .toPartyId(2L)
                 .notes("Order notes")
@@ -138,7 +141,7 @@ class TransactionServiceImplTest {
                 .orderId("BL-100")
                 .costs(List.of(CostRequest.builder()
                         .costTypeCode("SHIPPING")
-                        .amount(4.95)
+                        .amount(new BigDecimal("4.95"))
                         .currencyCode("USD")
                         .notes("shipping")
                         .build()))

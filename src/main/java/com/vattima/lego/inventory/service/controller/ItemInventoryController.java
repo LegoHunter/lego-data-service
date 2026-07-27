@@ -1,28 +1,31 @@
 package com.vattima.lego.inventory.service.controller;
 
+import com.vattima.lego.inventory.service.api.ItemInventoryService;
+import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
+import com.vattima.lego.inventory.service.dto.AddItemInventoryResponse;
 import com.vattima.lego.inventory.service.logging.LogExecution;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import io.legohunter.data.dao.ItemInventoryDao;
 import io.legohunter.data.dto.ItemInventory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/inventory")
 @RequiredArgsConstructor
+@Validated
 public class ItemInventoryController {
 
-    //    private final ItemInventoryService itemInventoryService;
+    private final ItemInventoryService itemInventoryService;
     private final ItemInventoryDao itemInventoryDao;
 
     @GetMapping
     @LogExecution
-    public ResponseEntity<List<ItemInventory>> findAll() {
+    public ResponseEntity<Set<ItemInventory>> findAll() {
         return ResponseEntity.ok(itemInventoryDao.findAll());
     }
 
@@ -38,8 +41,8 @@ public class ItemInventoryController {
         return itemInventoryDao.findByItemInventoryId(itemInventoryId).map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-//    @PostMapping
-//    public ResponseEntity<ItemInventory> addItemInventory(@RequestBody AddItemInventoryRequest addItemInventoryRequest) {
-//        return ResponseEntity.ok(itemInventoryService.addItemInventory(addItemInventoryRequest));
-//    }
+    @PostMapping
+    public ResponseEntity<AddItemInventoryResponse> addItemInventory(@Valid @RequestBody AddItemInventoryRequest addItemInventoryRequest) {
+        return ResponseEntity.ok(itemInventoryService.addItemInventory(addItemInventoryRequest));
+    }
 }

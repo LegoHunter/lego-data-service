@@ -7,6 +7,10 @@ management:
         include: "*"
   tracing:
     enabled: false
+  defaults:
+    metrics:
+      export:
+        enabled: false
 
 otel:
   sdk:
