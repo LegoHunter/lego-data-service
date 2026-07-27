@@ -5,7 +5,9 @@ import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryResponse;
 import com.vattima.lego.inventory.service.dto.CostRequest;
 import com.vattima.lego.inventory.service.dto.InventoryPhysicalUpdateRequest;
+import com.vattima.lego.inventory.service.dto.InventorySearchItemResponse;
 import com.vattima.lego.inventory.service.dto.InventorySearchResponse;
+import com.vattima.lego.inventory.service.dto.InventorySearchTransactionResponse;
 import com.vattima.lego.inventory.service.dto.InventoryStateUpdateRequest;
 import com.vattima.lego.inventory.service.dto.ItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.PaymentRequest;
@@ -51,10 +53,12 @@ import org.springframework.validation.annotation.Validated;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.List;
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -108,8 +112,11 @@ public class ItemInventoryServiceImpl implements ItemInventoryService {
     @Override
     public InventorySearchResponse searchInventory(ItemInventorySearchCriteria criteria) {
         ItemInventorySearchCriteria normalized = normalizeSearchCriteria(criteria);
+        Set<InventorySearchItemResponse> items = itemInventoryDao.search(normalized).stream()
+                .map(this::toInventorySearchItemResponse)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
         return InventorySearchResponse.builder()
-                .items(itemInventoryDao.search(normalized))
+                .items(items)
                 .total(itemInventoryDao.countSearch(normalized))
                 .limit(normalized.getLimit())
                 .offset(normalized.getOffset())
@@ -501,6 +508,28 @@ public class ItemInventoryServiceImpl implements ItemInventoryService {
                 .itemInventory(inventory)
                 .catalogItems(itemInventoryExternalCatalogItemDao.findByItemInventoryId(inventory.getItemInventoryId()))
                 .costs(transactionCostDao.findByTransactionItemId(transactionItem.getTransactionItemId()))
+                .build();
+    }
+
+    private InventorySearchItemResponse toInventorySearchItemResponse(ItemInventory itemInventory) {
+        Set<InventorySearchTransactionResponse> transactions = transactionItemDao
+                .findByItemInventoryId(itemInventory.getItemInventoryId())
+                .stream()
+                .map(this::toInventorySearchTransactionResponse)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        return InventorySearchItemResponse.builder()
+                .itemInventory(itemInventory)
+                .transactions(transactions)
+                .build();
+    }
+
+    private InventorySearchTransactionResponse toInventorySearchTransactionResponse(TransactionItem transactionItem) {
+        Long transactionId = transactionItem.getTransactionId();
+        return InventorySearchTransactionResponse.builder()
+                .transaction(requireTransaction(transactionId))
+                .transactionCosts(transactionCostDao.findByTransactionId(transactionId))
+                .transactionItem(transactionItem)
+                .transactionItemCosts(transactionCostDao.findByTransactionItemId(transactionItem.getTransactionItemId()))
                 .build();
     }
 

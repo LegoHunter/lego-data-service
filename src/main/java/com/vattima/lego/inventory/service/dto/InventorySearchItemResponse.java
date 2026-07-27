@@ -1,5 +1,6 @@
 package com.vattima.lego.inventory.service.dto;
 
+import io.legohunter.data.dto.ItemInventory;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,9 +12,7 @@ import java.util.Set;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class InventorySearchResponse {
-    private Set<InventorySearchItemResponse> items;
-    private int total;
-    private int limit;
-    private int offset;
+public class InventorySearchItemResponse {
+    private ItemInventory itemInventory;
+    private Set<InventorySearchTransactionResponse> transactions;
 }

@@ -483,18 +483,42 @@ class ItemInventoryServiceImplTest {
     void searchInventoryNormalizesDefaultsAndDelegates() {
         ItemInventory inventory = new ItemInventory();
         inventory.setItemInventoryId(202);
+        Transactions transaction = Transactions.builder().transactionId(101L).notes("Acquisition").build();
+        TransactionItem transactionItem = TransactionItem.builder()
+                .transactionItemId(303L)
+                .transactionId(101L)
+                .itemInventoryId(202)
+                .transactionTypeCode("PURCHASE")
+                .build();
+        TransactionCost transactionCost = transactionCost("SHIPPING", "12.50");
+        TransactionItemCost transactionItemCost = transactionItemCost(303L, "PRICE", "99.99");
         ItemInventorySearchCriteria criteria = ItemInventorySearchCriteria.builder().itemNumber("6390-1").build();
         when(itemInventoryDao.search(criteria)).thenReturn(Set.of(inventory));
         when(itemInventoryDao.countSearch(criteria)).thenReturn(1);
+        when(transactionItemDao.findByItemInventoryId(202)).thenReturn(List.of(transactionItem));
+        when(transactionsDao.findById(101L)).thenReturn(Optional.of(transaction));
+        when(transactionCostDao.findByTransactionId(101L)).thenReturn(List.of(transactionCost));
+        when(transactionCostDao.findByTransactionItemId(303L)).thenReturn(List.of(transactionItemCost));
 
         InventorySearchResponse response = service.searchInventory(criteria);
 
-        assertThat(response.getItems()).containsExactly(inventory);
+        assertThat(response.getItems()).singleElement()
+                .satisfies(item -> {
+                    assertThat(item.getItemInventory()).isSameAs(inventory);
+                    assertThat(item.getTransactions()).singleElement()
+                            .satisfies(searchTransaction -> {
+                                assertThat(searchTransaction.getTransaction()).isSameAs(transaction);
+                                assertThat(searchTransaction.getTransactionCosts()).containsExactly(transactionCost);
+                                assertThat(searchTransaction.getTransactionItem()).isSameAs(transactionItem);
+                                assertThat(searchTransaction.getTransactionItemCosts()).containsExactly(transactionItemCost);
+                            });
+                });
         assertThat(response.getTotal()).isEqualTo(1);
         assertThat(response.getLimit()).isEqualTo(100);
         assertThat(response.getOffset()).isZero();
         assertThat(criteria.getLimit()).isEqualTo(100);
         assertThat(criteria.getOffset()).isZero();
+        verifyNoInteractions(paymentDao);
     }
 
     @Test
