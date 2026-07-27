@@ -271,7 +271,7 @@ class ItemInventoryServiceImplTest {
     @Test
     void addItemInventoryAllowsEmptyTransactionCosts() {
         AddItemInventoryRequest request = acquisitionRequest();
-        request.setCosts(Set.of());
+        request.setCosts(List.of());
         stubThroughPaymentConversion();
 
         service.addItemInventory(request);
@@ -282,7 +282,7 @@ class ItemInventoryServiceImplTest {
     @Test
     void addItemInventoryRejectsTransactionLevelPriceBeforeAnyWrites() {
         AddItemInventoryRequest request = acquisitionRequest();
-        request.setCosts(Set.of(cost("PRICE", "99.99", "transaction-level price")));
+        request.setCosts(List.of(cost("PRICE", "99.99", "transaction-level price")));
 
         assertThatThrownBy(() -> service.addItemInventory(request))
                 .isInstanceOf(ValidationException.class)
@@ -294,7 +294,7 @@ class ItemInventoryServiceImplTest {
     @Test
     void addItemInventoryRejectsMissingItemCostsBeforeAnyWrites() {
         AddItemInventoryRequest request = acquisitionRequest();
-        request.getInventoryItems().getFirst().setCosts(Set.of());
+        request.getInventoryItems().getFirst().setCosts(List.of());
 
         assertThatThrownBy(() -> service.addItemInventory(request))
                 .isInstanceOf(ValidationException.class)
@@ -306,7 +306,7 @@ class ItemInventoryServiceImplTest {
     @Test
     void addItemInventoryRejectsMissingItemPriceBeforeAnyWrites() {
         AddItemInventoryRequest request = acquisitionRequest();
-        request.getInventoryItems().getFirst().setCosts(Set.of(cost("FEE", "2.00", "item fee")));
+        request.getInventoryItems().getFirst().setCosts(List.of(cost("FEE", "2.00", "item fee")));
 
         assertThatThrownBy(() -> service.addItemInventory(request))
                 .isInstanceOf(ValidationException.class)
@@ -473,7 +473,7 @@ class ItemInventoryServiceImplTest {
                 .notes("Order notes")
                 .platformName("BrickLink")
                 .transactionPlatformName("BrickLink")
-                .costs(Set.of(cost("SHIPPING", "12.50", "shipping")))
+                .costs(List.of(cost("SHIPPING", "12.50", "shipping")))
                 .payments(List.of(PaymentRequest.builder()
                         .paymentDate(LocalDate.parse("2026-05-20"))
                         .currencyCode("USD")
@@ -495,7 +495,7 @@ class ItemInventoryServiceImplTest {
                         .boxConditionCode("G")
                         .instructionsConditionCode("G")
                         .transactionTypeCode("PURCHASE")
-                        .costs(Set.of(cost("PRICE", "99.99", "item price")))
+                        .costs(List.of(cost("PRICE", "99.99", "item price")))
                         .forSale(false)
                         .quantity(1)
                         .active(true)

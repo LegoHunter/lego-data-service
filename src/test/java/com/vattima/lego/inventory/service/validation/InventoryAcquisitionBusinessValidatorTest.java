@@ -9,11 +9,8 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.AbstractSet;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -33,7 +30,7 @@ class InventoryAcquisitionBusinessValidatorTest {
     @Test
     void rejectsNullTransactionCostEntry() {
         AddItemInventoryRequest request = validRequest();
-        Set<CostRequest> costs = new LinkedHashSet<>();
+        List<CostRequest> costs = new ArrayList<>();
         costs.add(null);
         request.setCosts(costs);
 
@@ -45,7 +42,7 @@ class InventoryAcquisitionBusinessValidatorTest {
     @Test
     void rejectsDuplicateTransactionCostTypes() {
         AddItemInventoryRequest request = validRequest();
-        request.setCosts(duplicateCostSet("SHIPPING"));
+        request.setCosts(List.of(cost("SHIPPING"), cost("SHIPPING")));
 
         assertThatThrownBy(() -> validator.validate(request))
                 .isInstanceOf(ValidationException.class)
@@ -55,7 +52,7 @@ class InventoryAcquisitionBusinessValidatorTest {
     @Test
     void rejectsTransactionLevelPrice() {
         AddItemInventoryRequest request = validRequest();
-        request.setCosts(Set.of(cost("PRICE")));
+        request.setCosts(List.of(cost("PRICE")));
 
         assertThatThrownBy(() -> validator.validate(request))
                 .isInstanceOf(ValidationException.class)
@@ -95,7 +92,7 @@ class InventoryAcquisitionBusinessValidatorTest {
     @Test
     void rejectsNullTransactionItemCostEntry() {
         AddItemInventoryRequest request = validRequest();
-        Set<CostRequest> costs = new LinkedHashSet<>();
+        List<CostRequest> costs = new ArrayList<>();
         costs.add(null);
         request.getInventoryItems().getFirst().setCosts(costs);
 
@@ -107,7 +104,7 @@ class InventoryAcquisitionBusinessValidatorTest {
     @Test
     void rejectsDuplicateTransactionItemCostTypes() {
         AddItemInventoryRequest request = validRequest();
-        request.getInventoryItems().getFirst().setCosts(duplicateCostSet("PRICE"));
+        request.getInventoryItems().getFirst().setCosts(List.of(cost("PRICE"), cost("PRICE")));
 
         assertThatThrownBy(() -> validator.validate(request))
                 .isInstanceOf(ValidationException.class)
@@ -117,7 +114,7 @@ class InventoryAcquisitionBusinessValidatorTest {
     @Test
     void rejectsMissingItemCosts() {
         AddItemInventoryRequest request = validRequest();
-        request.getInventoryItems().getFirst().setCosts(Set.of());
+        request.getInventoryItems().getFirst().setCosts(List.of());
 
         assertThatThrownBy(() -> validator.validate(request))
                 .isInstanceOf(ValidationException.class)
@@ -137,7 +134,7 @@ class InventoryAcquisitionBusinessValidatorTest {
     @Test
     void rejectsMissingItemPrice() {
         AddItemInventoryRequest request = validRequest();
-        request.getInventoryItems().getFirst().setCosts(Set.of(cost("FEE")));
+        request.getInventoryItems().getFirst().setCosts(List.of(cost("FEE")));
 
         assertThatThrownBy(() -> validator.validate(request))
                 .isInstanceOf(ValidationException.class)
@@ -192,7 +189,7 @@ class InventoryAcquisitionBusinessValidatorTest {
     @Test
     void allowsNullCostTypeCodeForFieldValidationToReport() {
         AddItemInventoryRequest request = validRequest();
-        request.setCosts(Set.of(cost(null)));
+        request.setCosts(List.of(cost(null)));
 
         validator.validate(request);
     }
@@ -200,7 +197,7 @@ class InventoryAcquisitionBusinessValidatorTest {
     @Test
     void allowsEmptyTransactionCostsWhenItemsHavePrices() {
         AddItemInventoryRequest request = validRequest();
-        request.setCosts(Set.of());
+        request.setCosts(List.of());
 
         validator.validate(request);
     }
@@ -211,7 +208,7 @@ class InventoryAcquisitionBusinessValidatorTest {
                 .fromPartyId(1L)
                 .toPartyId(2L)
                 .transactionPlatformName("BrickLink")
-                .costs(Set.of(cost("SHIPPING")))
+                .costs(List.of(cost("SHIPPING")))
                 .payments(List.of(PaymentRequest.builder()
                         .paymentDate(LocalDate.parse("2026-07-27"))
                         .currencyCode("USD")
@@ -232,7 +229,7 @@ class InventoryAcquisitionBusinessValidatorTest {
                         .boxConditionCode("G")
                         .instructionsConditionCode("G")
                         .transactionTypeCode("P")
-                        .costs(Set.of(cost("PRICE")))
+                        .costs(List.of(cost("PRICE")))
                         .forSale(false)
                         .quantity(1)
                         .active(true)
@@ -248,18 +245,4 @@ class InventoryAcquisitionBusinessValidatorTest {
                 .build();
     }
 
-    private Set<CostRequest> duplicateCostSet(String costTypeCode) {
-        List<CostRequest> duplicates = List.of(cost(costTypeCode), cost(costTypeCode));
-        return new AbstractSet<>() {
-            @Override
-            public Iterator<CostRequest> iterator() {
-                return duplicates.iterator();
-            }
-
-            @Override
-            public int size() {
-                return duplicates.size();
-            }
-        };
-    }
 }

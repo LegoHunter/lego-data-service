@@ -1,5 +1,7 @@
 package com.vattima.lego.inventory.service.validation;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.CostRequest;
 import io.legohunter.data.enums.CurrencyCode;
 import jakarta.validation.Validation;
@@ -50,6 +52,36 @@ class RequestValidationTest {
         assertThat(validator.validate(holder)).singleElement()
                 .satisfies(violation -> assertThat(violation.getMessage())
                         .isEqualTo("Cost types must be unique in the collection. The following duplicates are not allowed [ITEM: 2]"));
+    }
+
+    @Test
+    void requestJsonPreservesDuplicateCostTypesForValidation() throws Exception {
+        AddItemInventoryRequest request = new ObjectMapper().readValue("""
+                {
+                  "costs": [
+                    { "costTypeCode": "SHIPPING", "amount": 1.00, "currencyCode": "USD" },
+                    { "costTypeCode": "SHIPPING", "amount": 2.00, "currencyCode": "USD" }
+                  ],
+                  "inventoryItems": [
+                    {
+                      "costs": [
+                        { "costTypeCode": "PRICE", "amount": 184.37, "currencyCode": "USD" },
+                        { "costTypeCode": "PRICE", "amount": 6.25, "currencyCode": "USD" }
+                      ]
+                    }
+                  ]
+                }
+                """, AddItemInventoryRequest.class);
+
+        assertThat(request.getCosts()).hasSize(2);
+        assertThat(request.getInventoryItems().getFirst().getCosts()).hasSize(2);
+
+        CostListHolder holder = new CostListHolder();
+        holder.setCosts(request.getInventoryItems().getFirst().getCosts());
+
+        assertThat(validator.validate(holder)).singleElement()
+                .satisfies(violation -> assertThat(violation.getMessage())
+                        .isEqualTo("Cost types must be unique in the collection. The following duplicates are not allowed [PRICE: 2]"));
     }
 
     @Test

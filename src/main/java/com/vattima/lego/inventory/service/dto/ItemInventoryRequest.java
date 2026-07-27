@@ -18,7 +18,7 @@ import io.legohunter.data.validation.TransactionTypeExists;
 import com.vattima.lego.inventory.service.validation.UniqueCostTypeCode;
 import org.hibernate.validator.constraints.Range;
 
-import java.util.Set;
+import java.util.List;
 
 @Data
 @Builder
@@ -69,7 +69,7 @@ public class ItemInventoryRequest {
 
     @NotEmpty
     @UniqueCostTypeCode
-    private Set<@Valid CostRequest> costs;
+    private List<@Valid CostRequest> costs;
 
     @NotNull
     private Boolean forSale;
