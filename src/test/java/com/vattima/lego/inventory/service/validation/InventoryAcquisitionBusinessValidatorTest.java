@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 class InventoryAcquisitionBusinessValidatorTest {
     private final InventoryAcquisitionBusinessValidator validator = new InventoryAcquisitionBusinessValidator();
@@ -178,12 +179,12 @@ class InventoryAcquisitionBusinessValidatorTest {
         request.getPayments().getFirst().setExchangeRate(null);
         request.getPayments().getFirst().setCurrencyCode(null);
 
-        validator.validate(request);
+        assertThatCode(() -> validator.validate(request)).doesNotThrowAnyException();
 
         request.getPayments().getFirst().setCurrencyCode("USD");
         request.getPayments().getFirst().setSellerCurrencyCode(null);
 
-        validator.validate(request);
+        assertThatCode(() -> validator.validate(request)).doesNotThrowAnyException();
     }
 
     @Test
@@ -191,7 +192,7 @@ class InventoryAcquisitionBusinessValidatorTest {
         AddItemInventoryRequest request = validRequest();
         request.setCosts(List.of(cost(null)));
 
-        validator.validate(request);
+        assertThatCode(() -> validator.validate(request)).doesNotThrowAnyException();
     }
 
     @Test
@@ -199,7 +200,29 @@ class InventoryAcquisitionBusinessValidatorTest {
         AddItemInventoryRequest request = validRequest();
         request.setCosts(List.of());
 
-        validator.validate(request);
+        request.getPayments().getFirst().setAmount(new BigDecimal("1.00"));
+
+        assertThatCode(() -> validator.validate(request)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void rejectsMixedCostAndPaymentCurrencies() {
+        AddItemInventoryRequest request = validRequest();
+        request.getInventoryItems().getFirst().getCosts().getFirst().setCurrencyCode("EUR");
+
+        assertThatThrownBy(() -> validator.validate(request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("All costs and payments in a transaction must use the same currencyCode: [USD, EUR]");
+    }
+
+    @Test
+    void rejectsUnbalancedPaymentTotal() {
+        AddItemInventoryRequest request = validRequest();
+        request.getPayments().getFirst().setAmount(new BigDecimal("1.99"));
+
+        assertThatThrownBy(() -> validator.validate(request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("Total payments must equal total costs. costs=2.00, payments=1.99");
     }
 
     private AddItemInventoryRequest validRequest() {
@@ -214,7 +237,7 @@ class InventoryAcquisitionBusinessValidatorTest {
                         .currencyCode("USD")
                         .sellerCurrencyCode("USD")
                         .exchangeRate(new BigDecimal("1.00000"))
-                        .amount(new BigDecimal("100.00"))
+                        .amount(new BigDecimal("2.00"))
                         .paymentPlatformName("PayPal")
                         .paymentPlatformTransactionId("PAYPAL-123")
                         .build()))

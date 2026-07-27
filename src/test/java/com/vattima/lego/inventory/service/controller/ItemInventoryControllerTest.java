@@ -3,8 +3,13 @@ package com.vattima.lego.inventory.service.controller;
 import com.vattima.lego.inventory.service.api.ItemInventoryService;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryResponse;
+import com.vattima.lego.inventory.service.dto.InventoryDetailsUpdateRequest;
+import com.vattima.lego.inventory.service.dto.InventorySearchResponse;
+import com.vattima.lego.inventory.service.dto.InventoryStateUpdateRequest;
+import com.vattima.lego.inventory.service.dto.SaleIntentUpdateRequest;
 import io.legohunter.data.dao.ItemInventoryDao;
 import io.legohunter.data.dto.ItemInventory;
+import io.legohunter.data.dto.ItemInventorySearchCriteria;
 import io.legohunter.data.dto.Transactions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -94,6 +99,83 @@ class ItemInventoryControllerTest {
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getBody()).isSameAs(serviceResponse);
         verify(itemInventoryService).addItemInventory(request);
+    }
+
+    @Test
+    void searchAcceptsCriteriaBodyAndDelegatesToService() {
+        InventorySearchResponse serviceResponse = InventorySearchResponse.builder().total(1).limit(25).offset(5).build();
+        ItemInventorySearchCriteria criteria = ItemInventorySearchCriteria.builder()
+                .itemNumber("6390-1")
+                .description("Main Street")
+                .boxNumber(12)
+                .inventoryStateCode("AVAILABLE")
+                .saleIntentCode("KEEP")
+                .active(true)
+                .newOrUsed("U")
+                .completeness("C")
+                .itemConditionCode("VG")
+                .boxConditionCode("G")
+                .instructionsConditionCode("E")
+                .transactionDateFrom(java.time.LocalDate.parse("2026-01-01"))
+                .transactionDateTo(java.time.LocalDate.parse("2026-12-31"))
+                .limit(25)
+                .offset(5)
+                .build();
+        when(itemInventoryService.searchInventory(criteria)).thenReturn(serviceResponse);
+
+        ResponseEntity<InventorySearchResponse> response = controller().search(criteria);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).isSameAs(serviceResponse);
+        verify(itemInventoryService).searchInventory(criteria);
+    }
+
+    @Test
+    void searchAllowsMissingBodyForDefaultSearch() {
+        InventorySearchResponse serviceResponse = InventorySearchResponse.builder().total(0).limit(100).offset(0).build();
+        when(itemInventoryService.searchInventory(null)).thenReturn(serviceResponse);
+
+        ResponseEntity<InventorySearchResponse> response = controller().search(null);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).isSameAs(serviceResponse);
+        verify(itemInventoryService).searchInventory(null);
+    }
+
+    @Test
+    void updateDetailsDelegatesToService() {
+        InventoryDetailsUpdateRequest request = InventoryDetailsUpdateRequest.builder().boxNumber(12).build();
+        ItemInventory inventory = new ItemInventory();
+        when(itemInventoryService.updateInventoryDetails(202, request)).thenReturn(inventory);
+
+        ResponseEntity<ItemInventory> response = controller().updateDetails(202, request);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).isSameAs(inventory);
+    }
+
+    @Test
+    void updateStateDelegatesToService() {
+        InventoryStateUpdateRequest request = InventoryStateUpdateRequest.builder().inventoryStateCode("SOLD").build();
+        ItemInventory inventory = new ItemInventory();
+        when(itemInventoryService.updateInventoryState(202, request)).thenReturn(inventory);
+
+        ResponseEntity<ItemInventory> response = controller().updateState(202, request);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).isSameAs(inventory);
+    }
+
+    @Test
+    void updateSaleIntentDelegatesToService() {
+        SaleIntentUpdateRequest request = SaleIntentUpdateRequest.builder().saleIntentCode("UNDECIDED").build();
+        ItemInventory inventory = new ItemInventory();
+        when(itemInventoryService.updateSaleIntent(202, request)).thenReturn(inventory);
+
+        ResponseEntity<ItemInventory> response = controller().updateSaleIntent(202, request);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).isSameAs(inventory);
     }
 
     private ItemInventoryController controller() {
