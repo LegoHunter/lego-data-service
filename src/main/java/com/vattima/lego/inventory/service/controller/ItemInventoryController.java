@@ -3,7 +3,7 @@ package com.vattima.lego.inventory.service.controller;
 import com.vattima.lego.inventory.service.api.ItemInventoryService;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryResponse;
-import com.vattima.lego.inventory.service.dto.InventoryPhysicalUpdateRequest;
+import com.vattima.lego.inventory.service.dto.InventoryDetailsUpdateRequest;
 import com.vattima.lego.inventory.service.dto.InventorySearchResponse;
 import com.vattima.lego.inventory.service.dto.InventoryStateUpdateRequest;
 import com.vattima.lego.inventory.service.dto.SaleIntentUpdateRequest;
@@ -57,12 +57,12 @@ public class ItemInventoryController {
         return ResponseEntity.ok(itemInventoryService.addItemInventory(addItemInventoryRequest));
     }
 
-    @PatchMapping("/{itemInventoryId}/physical")
-    public ResponseEntity<ItemInventory> updatePhysical(
+    @PatchMapping("/{itemInventoryId}/details")
+    public ResponseEntity<ItemInventory> updateDetails(
             @PathVariable final Integer itemInventoryId,
-            @Valid @RequestBody InventoryPhysicalUpdateRequest request
+            @Valid @RequestBody InventoryDetailsUpdateRequest request
     ) {
-        return ResponseEntity.ok(itemInventoryService.updateInventoryPhysical(itemInventoryId, request));
+        return ResponseEntity.ok(itemInventoryService.updateInventoryDetails(itemInventoryId, request));
     }
 
     @PatchMapping("/{itemInventoryId}/state")

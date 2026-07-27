@@ -4,7 +4,7 @@ import com.vattima.lego.inventory.service.api.ItemInventoryService;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryResponse;
 import com.vattima.lego.inventory.service.dto.CostRequest;
-import com.vattima.lego.inventory.service.dto.InventoryPhysicalUpdateRequest;
+import com.vattima.lego.inventory.service.dto.InventoryDetailsUpdateRequest;
 import com.vattima.lego.inventory.service.dto.InventorySearchItemResponse;
 import com.vattima.lego.inventory.service.dto.InventorySearchResponse;
 import com.vattima.lego.inventory.service.dto.InventorySearchTransactionResponse;
@@ -283,7 +283,7 @@ public class ItemInventoryServiceImpl implements ItemInventoryService {
 
     @Override
     @Transactional
-    public ItemInventory updateInventoryPhysical(Integer itemInventoryId, InventoryPhysicalUpdateRequest request) {
+    public ItemInventory updateInventoryDetails(Integer itemInventoryId, InventoryDetailsUpdateRequest request) {
         ItemInventory inventory = requireInventory(itemInventoryId);
         if (request.getBoxNumber() != null) {
             inventory.setBoxNumber(request.getBoxNumber());

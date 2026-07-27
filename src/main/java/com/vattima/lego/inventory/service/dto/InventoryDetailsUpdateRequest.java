@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class InventoryPhysicalUpdateRequest {
+public class InventoryDetailsUpdateRequest {
     @Min(value = 1)
     private Integer boxNumber;
 

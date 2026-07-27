@@ -3,7 +3,7 @@ package com.vattima.lego.inventory.service.api;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryResponse;
 import com.vattima.lego.inventory.service.dto.CostRequest;
-import com.vattima.lego.inventory.service.dto.InventoryPhysicalUpdateRequest;
+import com.vattima.lego.inventory.service.dto.InventoryDetailsUpdateRequest;
 import com.vattima.lego.inventory.service.dto.InventorySearchResponse;
 import com.vattima.lego.inventory.service.dto.InventoryStateUpdateRequest;
 import com.vattima.lego.inventory.service.dto.PaymentRequest;
@@ -45,7 +45,7 @@ public interface ItemInventoryService {
 
     AddItemInventoryResponse deleteTransactionItemCost(Long transactionItemId, Long transactionItemCostId);
 
-    ItemInventory updateInventoryPhysical(Integer itemInventoryId, @Valid InventoryPhysicalUpdateRequest request);
+    ItemInventory updateInventoryDetails(Integer itemInventoryId, @Valid InventoryDetailsUpdateRequest request);
 
     ItemInventory updateInventoryState(Integer itemInventoryId, @Valid InventoryStateUpdateRequest request);
 

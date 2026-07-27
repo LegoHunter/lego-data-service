@@ -3,7 +3,7 @@ package com.vattima.lego.inventory.service.impl;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryResponse;
 import com.vattima.lego.inventory.service.dto.CostRequest;
-import com.vattima.lego.inventory.service.dto.InventoryPhysicalUpdateRequest;
+import com.vattima.lego.inventory.service.dto.InventoryDetailsUpdateRequest;
 import com.vattima.lego.inventory.service.dto.InventorySearchResponse;
 import com.vattima.lego.inventory.service.dto.InventoryStateUpdateRequest;
 import com.vattima.lego.inventory.service.dto.ItemInventoryRequest;
@@ -681,7 +681,7 @@ class ItemInventoryServiceImplTest {
     }
 
     @Test
-    void updateInventoryPhysicalPatchesFieldsAndConditionCodes() {
+    void updateInventoryDetailsPatchesFieldsAndConditionCodes() {
         ItemInventory inventory = new ItemInventory();
         inventory.setItemInventoryId(202);
         inventory.setBoxNumber(1);
@@ -691,7 +691,7 @@ class ItemInventoryServiceImplTest {
         when(conditionDao.findByConditionCode("G")).thenReturn(Optional.of(Condition.builder().conditionId(2).build()));
         when(itemInventoryDao.update(inventory)).thenReturn(inventory);
 
-        ItemInventory result = service.updateInventoryPhysical(202, InventoryPhysicalUpdateRequest.builder()
+        ItemInventory result = service.updateInventoryDetails(202, InventoryDetailsUpdateRequest.builder()
                 .boxNumber(12)
                 .description("updated")
                 .newOrUsed("U")

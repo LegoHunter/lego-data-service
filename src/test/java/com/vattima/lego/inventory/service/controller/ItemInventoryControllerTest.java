@@ -3,7 +3,7 @@ package com.vattima.lego.inventory.service.controller;
 import com.vattima.lego.inventory.service.api.ItemInventoryService;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryResponse;
-import com.vattima.lego.inventory.service.dto.InventoryPhysicalUpdateRequest;
+import com.vattima.lego.inventory.service.dto.InventoryDetailsUpdateRequest;
 import com.vattima.lego.inventory.service.dto.InventorySearchResponse;
 import com.vattima.lego.inventory.service.dto.InventoryStateUpdateRequest;
 import com.vattima.lego.inventory.service.dto.SaleIntentUpdateRequest;
@@ -143,12 +143,12 @@ class ItemInventoryControllerTest {
     }
 
     @Test
-    void updatePhysicalDelegatesToService() {
-        InventoryPhysicalUpdateRequest request = InventoryPhysicalUpdateRequest.builder().boxNumber(12).build();
+    void updateDetailsDelegatesToService() {
+        InventoryDetailsUpdateRequest request = InventoryDetailsUpdateRequest.builder().boxNumber(12).build();
         ItemInventory inventory = new ItemInventory();
-        when(itemInventoryService.updateInventoryPhysical(202, request)).thenReturn(inventory);
+        when(itemInventoryService.updateInventoryDetails(202, request)).thenReturn(inventory);
 
-        ResponseEntity<ItemInventory> response = controller().updatePhysical(202, request);
+        ResponseEntity<ItemInventory> response = controller().updateDetails(202, request);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getBody()).isSameAs(inventory);

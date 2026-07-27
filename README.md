@@ -13,7 +13,7 @@ Phase 1 behavior:
 
 - Creates one acquisition `transactions` row.
 - Requires at least one inventory item and one payment.
-- Creates one `item_inventory` row per physical LEGO item.
+- Creates one `item_inventory` row per owned LEGO item.
 - Creates the primary BrickLink `item_inventory_external_catalog_item` link.
 - Creates `transaction_item` rows.
 - Creates `transaction_cost` rows for transaction-level fees only; transaction-level costs must not use `PRICE`.
@@ -32,14 +32,14 @@ Compatibility:
 
 Phase 2 read/search/correction behavior:
 
-- `POST /api/v1/inventory/search` searches owned inventory using an optional `ItemInventorySearchCriteria` request body with filters for item number, description, box number, inventory state, sale intent, active flag, physical item facts, condition codes, transaction date range, limit, and offset. Each result includes the `itemInventory` row plus the set of transactions in which that inventory row appears. Each transaction context includes the `transactions` row, transaction-level costs, the matching `transaction_item`, and that transaction item's costs. Search responses intentionally exclude payment data.
+- `POST /api/v1/inventory/search` searches owned inventory using an optional `ItemInventorySearchCriteria` request body with filters for item number, description, box number, inventory state, sale intent, active flag, owned-item details, condition codes, transaction date range, limit, and offset. Each result includes the `itemInventory` row plus the set of transactions in which that inventory row appears. Each transaction context includes the `transactions` row, transaction-level costs, the matching `transaction_item`, and that transaction item's costs. Search responses intentionally exclude payment data.
 - `GET /api/v1/transactions/{transactionId}` returns the complete persisted acquisition transaction tree.
 - `PATCH /api/v1/transactions/{transactionId}` updates transaction header fields such as date, parties, transaction platform, order id, and notes.
 - `POST /api/v1/transactions/{transactionId}/costs`, `PUT /api/v1/transactions/{transactionId}/costs/{transactionCostId}`, and `DELETE /api/v1/transactions/{transactionId}/costs/{transactionCostId}` add, update, or delete one transaction-level cost row.
 - `POST /api/v1/transactions/{transactionId}/payments`, `PUT /api/v1/transactions/{transactionId}/payments/{paymentId}`, and `DELETE /api/v1/transactions/{transactionId}/payments/{paymentId}` add, update, or delete one payment row.
 - `PATCH /api/v1/transaction-items/{transactionItemId}` updates transaction-item correction fields.
 - `POST /api/v1/transaction-items/{transactionItemId}/costs`, `PUT /api/v1/transaction-items/{transactionItemId}/costs/{transactionItemCostId}`, and `DELETE /api/v1/transaction-items/{transactionItemId}/costs/{transactionItemCostId}` add, update, or delete one item-level cost row.
-- `PATCH /api/v1/inventory/{itemInventoryId}/physical` updates physical owned-item facts such as box, description, active flag, new/used, completeness, sealed, built-once, and condition codes.
+- `PATCH /api/v1/inventory/{itemInventoryId}/details` updates owned-inventory details such as box, description, active flag, new/used, completeness, sealed, built-once, and condition codes.
 - `PATCH /api/v1/inventory/{itemInventoryId}/state` updates `inventory_state_code` after validating the target state exists.
 - `PATCH /api/v1/inventory/{itemInventoryId}/sale-intent` updates `sale_intent_code` and note after validating the target sale intent exists. This endpoint may set `UNDECIDED` for existing/legacy inventory rows; new acquisition intake still defaults to `KEEP`.
 
