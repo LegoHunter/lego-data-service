@@ -3,15 +3,21 @@ package com.vattima.lego.inventory.service.controller;
 import com.vattima.lego.inventory.service.api.ItemInventoryService;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryResponse;
+import com.vattima.lego.inventory.service.dto.InventoryPhysicalUpdateRequest;
+import com.vattima.lego.inventory.service.dto.InventorySearchResponse;
+import com.vattima.lego.inventory.service.dto.InventoryStateUpdateRequest;
+import com.vattima.lego.inventory.service.dto.SaleIntentUpdateRequest;
 import com.vattima.lego.inventory.service.logging.LogExecution;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import io.legohunter.data.dao.ItemInventoryDao;
 import io.legohunter.data.dto.ItemInventory;
+import io.legohunter.data.dto.ItemInventorySearchCriteria;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.Set;
 
 @RestController
@@ -29,6 +35,44 @@ public class ItemInventoryController {
         return ResponseEntity.ok(itemInventoryDao.findAll());
     }
 
+    @GetMapping("/search")
+    @LogExecution
+    public ResponseEntity<InventorySearchResponse> search(
+            @RequestParam(required = false) String itemNumber,
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) Integer boxNumber,
+            @RequestParam(required = false) String inventoryStateCode,
+            @RequestParam(required = false) String saleIntentCode,
+            @RequestParam(required = false) Boolean active,
+            @RequestParam(required = false) String newOrUsed,
+            @RequestParam(required = false) String completeness,
+            @RequestParam(required = false) String itemConditionCode,
+            @RequestParam(required = false) String boxConditionCode,
+            @RequestParam(required = false) String instructionsConditionCode,
+            @RequestParam(required = false) LocalDate transactionDateFrom,
+            @RequestParam(required = false) LocalDate transactionDateTo,
+            @RequestParam(defaultValue = "100") Integer limit,
+            @RequestParam(defaultValue = "0") Integer offset
+    ) {
+        return ResponseEntity.ok(itemInventoryService.searchInventory(ItemInventorySearchCriteria.builder()
+                .itemNumber(itemNumber)
+                .description(description)
+                .boxNumber(boxNumber)
+                .inventoryStateCode(inventoryStateCode)
+                .saleIntentCode(saleIntentCode)
+                .active(active)
+                .newOrUsed(newOrUsed)
+                .completeness(completeness)
+                .itemConditionCode(itemConditionCode)
+                .boxConditionCode(boxConditionCode)
+                .instructionsConditionCode(instructionsConditionCode)
+                .transactionDateFrom(transactionDateFrom)
+                .transactionDateTo(transactionDateTo)
+                .limit(limit)
+                .offset(offset)
+                .build()));
+    }
+
     @GetMapping("/uuid/{uuid}")
     @LogExecution
     public ResponseEntity<ItemInventory> findByUuid(@PathVariable final String uuid) {
@@ -44,5 +88,29 @@ public class ItemInventoryController {
     @PostMapping
     public ResponseEntity<AddItemInventoryResponse> addItemInventory(@Valid @RequestBody AddItemInventoryRequest addItemInventoryRequest) {
         return ResponseEntity.ok(itemInventoryService.addItemInventory(addItemInventoryRequest));
+    }
+
+    @PatchMapping("/{itemInventoryId}/physical")
+    public ResponseEntity<ItemInventory> updatePhysical(
+            @PathVariable final Integer itemInventoryId,
+            @Valid @RequestBody InventoryPhysicalUpdateRequest request
+    ) {
+        return ResponseEntity.ok(itemInventoryService.updateInventoryPhysical(itemInventoryId, request));
+    }
+
+    @PatchMapping("/{itemInventoryId}/state")
+    public ResponseEntity<ItemInventory> updateState(
+            @PathVariable final Integer itemInventoryId,
+            @Valid @RequestBody InventoryStateUpdateRequest request
+    ) {
+        return ResponseEntity.ok(itemInventoryService.updateInventoryState(itemInventoryId, request));
+    }
+
+    @PatchMapping("/{itemInventoryId}/sale-intent")
+    public ResponseEntity<ItemInventory> updateSaleIntent(
+            @PathVariable final Integer itemInventoryId,
+            @Valid @RequestBody SaleIntentUpdateRequest request
+    ) {
+        return ResponseEntity.ok(itemInventoryService.updateSaleIntent(itemInventoryId, request));
     }
 }

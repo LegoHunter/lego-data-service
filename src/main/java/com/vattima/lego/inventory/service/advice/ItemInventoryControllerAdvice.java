@@ -2,6 +2,7 @@ package com.vattima.lego.inventory.service.advice;
 
 import com.vattima.lego.inventory.service.dto.ApiErrorResponse;
 import com.vattima.lego.inventory.service.dto.ApiValidationError;
+import com.vattima.lego.inventory.service.exception.NotFoundException;
 import com.vattima.lego.inventory.service.exception.ValidationException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -28,6 +29,18 @@ public class ItemInventoryControllerAdvice {
                 .errors(List.of(ApiValidationError.builder()
                         .message(e.getMessage())
                         .code("BUSINESS_RULE")
+                        .build()))
+                .build());
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ResponseEntity<ApiErrorResponse> notFoundExceptionHandler(NotFoundException e, WebRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiErrorResponse.builder()
+                .message("Resource not found")
+                .errors(List.of(ApiValidationError.builder()
+                        .message(e.getMessage())
+                        .code("NOT_FOUND")
                         .build()))
                 .build());
     }

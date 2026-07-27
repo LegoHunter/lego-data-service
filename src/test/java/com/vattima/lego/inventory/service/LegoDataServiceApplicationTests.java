@@ -5,6 +5,8 @@ import io.legohunter.data.dao.ConditionDao;
 import io.legohunter.data.dao.ExternalCatalogItemDao;
 import io.legohunter.data.dao.ItemInventoryDao;
 import io.legohunter.data.dao.ItemInventoryExternalCatalogItemDao;
+import io.legohunter.data.dao.ItemInventorySaleIntentDao;
+import io.legohunter.data.dao.ItemInventoryStateDao;
 import io.legohunter.data.dao.PaymentDao;
 import io.legohunter.data.dao.PaymentPlatformDao;
 import io.legohunter.data.dao.TransactionCostDao;
@@ -37,6 +39,12 @@ class LegoDataServiceApplicationTests {
 
 	@MockitoBean
 	private ItemInventoryDao itemInventoryDao;
+
+	@MockitoBean
+	private ItemInventorySaleIntentDao itemInventorySaleIntentDao;
+
+	@MockitoBean
+	private ItemInventoryStateDao itemInventoryStateDao;
 
 	@MockitoBean
 	private PaymentDao paymentDao;

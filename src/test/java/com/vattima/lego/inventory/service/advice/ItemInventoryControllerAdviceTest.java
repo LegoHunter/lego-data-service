@@ -1,6 +1,7 @@
 package com.vattima.lego.inventory.service.advice;
 
 import com.vattima.lego.inventory.service.dto.ApiErrorResponse;
+import com.vattima.lego.inventory.service.exception.NotFoundException;
 import com.vattima.lego.inventory.service.exception.ValidationException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -34,6 +35,20 @@ class ItemInventoryControllerAdviceTest {
                 .satisfies(error -> {
                     assertThat(error.getCode()).isEqualTo("BUSINESS_RULE");
                     assertThat(error.getMessage()).isEqualTo("Nope");
+                });
+    }
+
+    @Test
+    void notFoundExceptionReturnsStructuredNotFoundError() {
+        ResponseEntity<ApiErrorResponse> response = advice.notFoundExceptionHandler(new NotFoundException("Missing row"), null);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(404);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("Resource not found");
+        assertThat(response.getBody().getErrors()).singleElement()
+                .satisfies(error -> {
+                    assertThat(error.getCode()).isEqualTo("NOT_FOUND");
+                    assertThat(error.getMessage()).isEqualTo("Missing row");
                 });
     }
 
