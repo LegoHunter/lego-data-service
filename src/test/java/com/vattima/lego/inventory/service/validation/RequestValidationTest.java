@@ -69,7 +69,8 @@ class RequestValidationTest {
         holder.setCurrencyCode("US");
 
         assertThat(validator.validate(holder)).singleElement()
-                .satisfies(violation -> assertThat(violation.getMessage()).contains("Must be one of"));
+                .satisfies(violation -> assertThat(violation.getMessage())
+                        .startsWith("Value [US] is invalid. Must be one of"));
     }
 
     @Test
@@ -82,12 +83,12 @@ class RequestValidationTest {
         holder.setValue("NEW");
         assertThat(validator.validate(holder)).singleElement()
                 .satisfies(violation -> assertThat(violation.getMessage())
-                        .isEqualTo("Invalid character. Must be one of the specified upper-case characters."));
+                        .isEqualTo("Value [NEW] is invalid. Must be one of [N, U]"));
 
         holder.setValue(null);
         assertThat(validator.validate(holder)).singleElement()
                 .satisfies(violation -> assertThat(violation.getMessage())
-                        .isEqualTo("Invalid character. Must be one of the specified upper-case characters."));
+                        .isEqualTo("Value [null] is invalid. Must be one of [N, U]"));
     }
 
     private CostRequest cost(String costTypeCode) {
