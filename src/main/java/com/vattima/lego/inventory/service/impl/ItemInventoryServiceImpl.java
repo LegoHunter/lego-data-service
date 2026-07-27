@@ -8,6 +8,7 @@ import com.vattima.lego.inventory.service.dto.ItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.PaymentRequest;
 import com.vattima.lego.inventory.service.dto.TransactionItemInventoryResponse;
 import com.vattima.lego.inventory.service.exception.ValidationException;
+import com.vattima.lego.inventory.service.validation.InventoryAcquisitionBusinessValidator;
 import io.legohunter.data.dao.ConditionDao;
 import io.legohunter.data.dao.ExternalCatalogItemDao;
 import io.legohunter.data.dao.ItemInventoryDao;
@@ -26,6 +27,7 @@ import io.legohunter.data.dto.Payment;
 import io.legohunter.data.dto.PaymentPlatform;
 import io.legohunter.data.dto.TransactionCost;
 import io.legohunter.data.dto.TransactionItem;
+import io.legohunter.data.dto.TransactionItemCost;
 import io.legohunter.data.dto.TransactionPlatform;
 import io.legohunter.data.dto.Transactions;
 import io.legohunter.data.enums.CurrencyCode;
@@ -38,6 +40,7 @@ import org.springframework.validation.annotation.Validated;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -62,12 +65,13 @@ public class ItemInventoryServiceImpl implements ItemInventoryService {
     private final TransactionItemDao transactionItemDao;
     private final TransactionPlatformDao transactionPlatformDao;
     private final TransactionsDao transactionsDao;
+    private final InventoryAcquisitionBusinessValidator inventoryAcquisitionBusinessValidator;
 
     @Override
     @Transactional
     public AddItemInventoryResponse addItemInventory(@Valid AddItemInventoryRequest request) {
         log.info("Adding item inventory acquisition transaction");
-        validateBusinessRules(request);
+        inventoryAcquisitionBusinessValidator.validate(request);
 
         Transactions transaction = insertTransaction(request);
         transactionCostDao.setTransactionCosts(transaction.getTransactionId(), toTransactionCosts(request.getCosts()));
@@ -77,43 +81,6 @@ public class ItemInventoryServiceImpl implements ItemInventoryService {
                 .forEach(itemRequest -> insertAcquisitionItem(transaction, itemRequest));
 
         return readBackTransactionTree(transaction.getTransactionId());
-    }
-
-    private void validateBusinessRules(AddItemInventoryRequest request) {
-        if (!request.isTransactionPlatformProvided()) {
-            throw new ValidationException("transactionPlatformName or platformName is required");
-        }
-        if (!request.isTransactionPlatformNameCompatible()) {
-            throw new ValidationException("platformName and transactionPlatformName must match when both are provided");
-        }
-        if (request.getInventoryItems() == null || request.getInventoryItems().isEmpty()) {
-            throw new ValidationException("At least one inventory item is required");
-        }
-        if (request.getCosts() == null || request.getCosts().isEmpty()) {
-            throw new ValidationException("At least one transaction cost is required");
-        }
-        if (request.getPayments() == null || request.getPayments().isEmpty()) {
-            throw new ValidationException("At least one payment is required");
-        }
-        request.getInventoryItems().forEach(item -> {
-            if (item == null) {
-                throw new ValidationException("Inventory item entries must not be null");
-            }
-            if (item.getQuantity() == null || item.getQuantity() != 1) {
-                throw new ValidationException("Inventory item quantity must be 1");
-            }
-            if (Boolean.TRUE.equals(item.getForSale())) {
-                throw new ValidationException("New acquisition intake must use forSale=false; sale intent is set to KEEP by the service");
-            }
-        });
-        request.getPayments().forEach(payment -> {
-            if (payment == null) {
-                throw new ValidationException("Payment entries must not be null");
-            }
-            if (payment.getExchangeRate() == null && !payment.getCurrencyCode().equals(payment.getSellerCurrencyCode())) {
-                throw new ValidationException("exchangeRate is required when currencyCode and sellerCurrencyCode differ");
-            }
-        });
     }
 
     private Transactions insertTransaction(AddItemInventoryRequest request) {
@@ -151,6 +118,7 @@ public class ItemInventoryServiceImpl implements ItemInventoryService {
                 .notes(itemRequest.getDescription())
                 .build();
         transactionItemDao.insert(transactionItem);
+        transactionCostDao.setTransactionItemCosts(transactionItem.getTransactionItemId(), toTransactionItemCosts(itemRequest.getCosts()));
     }
 
     private ItemInventory toItemInventory(ItemInventoryRequest itemRequest) {
@@ -185,11 +153,22 @@ public class ItemInventoryServiceImpl implements ItemInventoryService {
                 .orElseThrow(() -> new ValidationException("Condition code was not found: " + conditionCode));
     }
 
-    private List<TransactionCost> toTransactionCosts(List<CostRequest> costs) {
+    private List<TransactionCost> toTransactionCosts(Collection<CostRequest> costs) {
         return costs.stream()
                 .map(cost -> TransactionCost.builder()
                         .costTypeCode(cost.getCostTypeCode())
                         .currencyCode(CurrencyCode.valueOf(cost.getCurrencyCode()))
+                        .amount(cost.getAmount().doubleValue())
+                        .notes(cost.getNotes())
+                        .build())
+                .toList();
+    }
+
+    private List<TransactionItemCost> toTransactionItemCosts(Collection<CostRequest> costs) {
+        return costs.stream()
+                .map(cost -> TransactionItemCost.builder()
+                        .costTypeCode(cost.getCostTypeCode())
+                        .currencyCode(cost.getCurrencyCode())
                         .amount(cost.getAmount().doubleValue())
                         .notes(cost.getNotes())
                         .build())

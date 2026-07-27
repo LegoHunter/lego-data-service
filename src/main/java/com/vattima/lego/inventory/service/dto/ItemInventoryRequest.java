@@ -6,6 +6,7 @@ import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,7 +15,10 @@ import lombok.NoArgsConstructor;
 import io.legohunter.data.validation.ConditionCodeExists;
 import io.legohunter.data.validation.ItemNumberExists;
 import io.legohunter.data.validation.TransactionTypeExists;
+import com.vattima.lego.inventory.service.validation.UniqueCostTypeCode;
 import org.hibernate.validator.constraints.Range;
+
+import java.util.Set;
 
 @Data
 @Builder
@@ -62,6 +66,10 @@ public class ItemInventoryRequest {
     @TransactionTypeExists
     @JsonAlias("transactionType")
     private String transactionTypeCode;
+
+    @NotEmpty
+    @UniqueCostTypeCode
+    private Set<@Valid CostRequest> costs;
 
     @NotNull
     private Boolean forSale;

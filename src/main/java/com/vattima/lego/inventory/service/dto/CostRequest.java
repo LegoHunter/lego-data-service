@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import io.legohunter.data.enums.CurrencyCode;
 import io.legohunter.data.validation.CostTypeExists;
@@ -19,10 +20,12 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @Valid
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class CostRequest {
 
     @NotBlank
     @CostTypeExists(message = "")
+    @EqualsAndHashCode.Include
     private String costTypeCode;
 
     @NotNull

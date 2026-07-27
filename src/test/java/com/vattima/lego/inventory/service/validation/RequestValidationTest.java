@@ -49,7 +49,7 @@ class RequestValidationTest {
 
         assertThat(validator.validate(holder)).singleElement()
                 .satisfies(violation -> assertThat(violation.getMessage())
-                        .isEqualTo("Cost types must be unique in the list. The following duplicates are not allowed [ITEM: 2]"));
+                        .isEqualTo("Cost types must be unique in the collection. The following duplicates are not allowed [ITEM: 2]"));
     }
 
     @Test

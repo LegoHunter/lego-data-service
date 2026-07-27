@@ -6,6 +6,7 @@ import com.vattima.lego.inventory.service.dto.CostRequest;
 import com.vattima.lego.inventory.service.dto.ItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.PaymentRequest;
 import com.vattima.lego.inventory.service.exception.ValidationException;
+import com.vattima.lego.inventory.service.validation.InventoryAcquisitionBusinessValidator;
 import io.legohunter.data.dao.ConditionDao;
 import io.legohunter.data.dao.ExternalCatalogItemDao;
 import io.legohunter.data.dao.ItemInventoryDao;
@@ -24,6 +25,7 @@ import io.legohunter.data.dto.Payment;
 import io.legohunter.data.dto.PaymentPlatform;
 import io.legohunter.data.dto.TransactionCost;
 import io.legohunter.data.dto.TransactionItem;
+import io.legohunter.data.dto.TransactionItemCost;
 import io.legohunter.data.dto.TransactionPlatform;
 import io.legohunter.data.dto.Transactions;
 import io.legohunter.data.enums.CurrencyCode;
@@ -32,6 +34,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -61,6 +64,7 @@ class ItemInventoryServiceImplTest {
     @Mock private TransactionItemDao transactionItemDao;
     @Mock private TransactionPlatformDao transactionPlatformDao;
     @Mock private TransactionsDao transactionsDao;
+    @Spy private InventoryAcquisitionBusinessValidator inventoryAcquisitionBusinessValidator = new InventoryAcquisitionBusinessValidator();
 
     @InjectMocks
     private ItemInventoryServiceImpl service;
@@ -84,7 +88,8 @@ class ItemInventoryServiceImplTest {
                 .primary(true)
                 .build();
         Payment readBackPayment = Payment.builder().paymentId(404L).transactionId(101L).amount(new BigDecimal("99.99000")).build();
-        TransactionCost readBackCost = TransactionCost.builder().transactionCostId(505L).transactionId(101L).amount(99.99).currencyCode(CurrencyCode.USD).build();
+        TransactionCost readBackCost = TransactionCost.builder().transactionCostId(505L).transactionId(101L).costTypeCode("SHIPPING").amount(12.50).currencyCode(CurrencyCode.USD).build();
+        TransactionItemCost readBackItemCost = TransactionItemCost.builder().transactionItemCostId(606L).transactionItemId(303L).costTypeCode("PRICE").amount(99.99).currencyCode("USD").build();
 
         when(transactionPlatformDao.findTransactionPlatformByName("BrickLink"))
                 .thenReturn(Optional.of(TransactionPlatform.builder().transactionPlatformId(7).transactionPlatformName("BrickLink").build()));
@@ -116,7 +121,7 @@ class ItemInventoryServiceImplTest {
         when(transactionItemDao.findByTransactionId(101L)).thenReturn(List.of(insertedTransactionItem));
         when(itemInventoryDao.findByItemInventoryId(202)).thenReturn(Optional.of(insertedInventory));
         when(itemInventoryExternalCatalogItemDao.findByItemInventoryId(202)).thenReturn(Set.of(catalogLink));
-        when(transactionCostDao.findByTransactionItemId(303L)).thenReturn(List.of());
+        when(transactionCostDao.findByTransactionItemId(303L)).thenReturn(List.of(readBackItemCost));
 
         AddItemInventoryResponse response = service.addItemInventory(request);
 
@@ -126,6 +131,7 @@ class ItemInventoryServiceImplTest {
         assertThat(response.getTransactionItems()).hasSize(1);
         assertThat(response.getTransactionItems().getFirst().getItemInventory()).isSameAs(insertedInventory);
         assertThat(response.getTransactionItems().getFirst().getCatalogItems()).containsExactly(catalogLink);
+        assertThat(response.getTransactionItems().getFirst().getCosts()).containsExactly(readBackItemCost);
 
         ArgumentCaptor<ItemInventory> inventoryCaptor = ArgumentCaptor.forClass(ItemInventory.class);
         verify(itemInventoryDao).insert(inventoryCaptor.capture());
@@ -141,9 +147,18 @@ class ItemInventoryServiceImplTest {
         verify(transactionCostDao).setTransactionCosts(org.mockito.ArgumentMatchers.eq(101L), costCaptor.capture());
         assertThat(costCaptor.getValue()).singleElement()
                 .satisfies(cost -> {
-                    assertThat(cost.getCostTypeCode()).isEqualTo("ITEM");
-                    assertThat(cost.getAmount()).isEqualTo(99.99);
+                    assertThat(cost.getCostTypeCode()).isEqualTo("SHIPPING");
+                    assertThat(cost.getAmount()).isEqualTo(12.50);
                     assertThat(cost.getCurrencyCode()).isEqualTo(CurrencyCode.USD);
+                });
+
+        ArgumentCaptor<List<TransactionItemCost>> itemCostCaptor = ArgumentCaptor.captor();
+        verify(transactionCostDao).setTransactionItemCosts(org.mockito.ArgumentMatchers.eq(303L), itemCostCaptor.capture());
+        assertThat(itemCostCaptor.getValue()).singleElement()
+                .satisfies(cost -> {
+                    assertThat(cost.getCostTypeCode()).isEqualTo("PRICE");
+                    assertThat(cost.getAmount()).isEqualTo(99.99);
+                    assertThat(cost.getCurrencyCode()).isEqualTo("USD");
                 });
 
         ArgumentCaptor<List<Payment>> paymentCaptor = ArgumentCaptor.captor();
@@ -244,11 +259,58 @@ class ItemInventoryServiceImplTest {
     @Test
     void addItemInventoryRejectsEmptyCostsBeforeAnyWrites() {
         AddItemInventoryRequest request = acquisitionRequest();
-        request.setCosts(List.of());
+        request.setCosts(null);
 
         assertThatThrownBy(() -> service.addItemInventory(request))
                 .isInstanceOf(ValidationException.class)
-                .hasMessage("At least one transaction cost is required");
+                .hasMessage("Transaction costs must not be null");
+
+        verifyNoInteractions(transactionsDao, itemInventoryDao, paymentDao, transactionCostDao);
+    }
+
+    @Test
+    void addItemInventoryAllowsEmptyTransactionCosts() {
+        AddItemInventoryRequest request = acquisitionRequest();
+        request.setCosts(Set.of());
+        stubThroughPaymentConversion();
+
+        service.addItemInventory(request);
+
+        verify(transactionCostDao).setTransactionCosts(org.mockito.ArgumentMatchers.eq(101L), org.mockito.ArgumentMatchers.eq(List.of()));
+    }
+
+    @Test
+    void addItemInventoryRejectsTransactionLevelPriceBeforeAnyWrites() {
+        AddItemInventoryRequest request = acquisitionRequest();
+        request.setCosts(Set.of(cost("PRICE", "99.99", "transaction-level price")));
+
+        assertThatThrownBy(() -> service.addItemInventory(request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("Transaction-level costs must not include costTypeCode PRICE; PRICE belongs on each transaction item");
+
+        verifyNoInteractions(transactionsDao, itemInventoryDao, paymentDao, transactionCostDao);
+    }
+
+    @Test
+    void addItemInventoryRejectsMissingItemCostsBeforeAnyWrites() {
+        AddItemInventoryRequest request = acquisitionRequest();
+        request.getInventoryItems().getFirst().setCosts(Set.of());
+
+        assertThatThrownBy(() -> service.addItemInventory(request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("Each inventory item must include at least one transaction item cost");
+
+        verifyNoInteractions(transactionsDao, itemInventoryDao, paymentDao, transactionCostDao);
+    }
+
+    @Test
+    void addItemInventoryRejectsMissingItemPriceBeforeAnyWrites() {
+        AddItemInventoryRequest request = acquisitionRequest();
+        request.getInventoryItems().getFirst().setCosts(Set.of(cost("FEE", "2.00", "item fee")));
+
+        assertThatThrownBy(() -> service.addItemInventory(request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("Each inventory item must include a transaction item cost with costTypeCode PRICE");
 
         verifyNoInteractions(transactionsDao, itemInventoryDao, paymentDao, transactionCostDao);
     }
@@ -411,12 +473,7 @@ class ItemInventoryServiceImplTest {
                 .notes("Order notes")
                 .platformName("BrickLink")
                 .transactionPlatformName("BrickLink")
-                .costs(List.of(CostRequest.builder()
-                        .costTypeCode("ITEM")
-                        .amount(new BigDecimal("99.99"))
-                        .currencyCode("USD")
-                        .notes("item price")
-                        .build()))
+                .costs(Set.of(cost("SHIPPING", "12.50", "shipping")))
                 .payments(List.of(PaymentRequest.builder()
                         .paymentDate(LocalDate.parse("2026-05-20"))
                         .currencyCode("USD")
@@ -438,10 +495,20 @@ class ItemInventoryServiceImplTest {
                         .boxConditionCode("G")
                         .instructionsConditionCode("G")
                         .transactionTypeCode("PURCHASE")
+                        .costs(Set.of(cost("PRICE", "99.99", "item price")))
                         .forSale(false)
                         .quantity(1)
                         .active(true)
                         .build()))
+                .build();
+    }
+
+    private CostRequest cost(String costTypeCode, String amount, String notes) {
+        return CostRequest.builder()
+                .costTypeCode(costTypeCode)
+                .amount(new BigDecimal(amount))
+                .currencyCode("USD")
+                .notes(notes)
                 .build();
     }
 }

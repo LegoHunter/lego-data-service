@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 @Data
 @Builder
@@ -47,9 +48,9 @@ public class AddItemInventoryRequest {
     @NotEmpty
     private List<@Valid PaymentRequest> payments;
 
-    @NotEmpty
+    @NotNull
     @UniqueCostTypeCode
-    private List<@Valid CostRequest> costs;
+    private Set<@Valid CostRequest> costs;
 
     @AssertTrue(message = "transactionPlatformName or platformName is required")
     public boolean isTransactionPlatformProvided() {

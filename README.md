@@ -12,11 +12,12 @@ REST Service over lego-data
 Phase 1 behavior:
 
 - Creates one acquisition `transactions` row.
-- Requires at least one inventory item, one payment, and one transaction-level cost.
+- Requires at least one inventory item and one payment.
 - Creates one `item_inventory` row per physical LEGO item.
 - Creates the primary BrickLink `item_inventory_external_catalog_item` link.
 - Creates `transaction_item` rows.
-- Creates `transaction_cost` rows.
+- Creates `transaction_cost` rows for transaction-level fees only; transaction-level costs must not use `PRICE`.
+- Creates `transaction_item_cost` rows for item-level costs; every transaction item must have one `PRICE` cost.
 - Creates `payment` rows.
 - Returns the persisted transaction tree, including costs, payments, transaction items, item inventory, catalog links, and item-level costs where present.
 - Explicitly defaults new acquisition inventory to `inventoryStateCode=AVAILABLE`, `saleIntentCode=KEEP`, and legacy `forSale=false`.
