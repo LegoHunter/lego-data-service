@@ -53,3 +53,22 @@ Phase 2 correction rules:
 - Cost/payment corrections are intentionally row-scoped add/update/delete operations.
 - Corrections do not create marketplace listings and do not enqueue marketplace sync requests.
 - Missing resources return structured `404` responses; validation and business-rule failures return structured `400` responses.
+
+Phase 3 marketplace listing draft/readiness behavior:
+
+- `POST /api/v1/marketplace-listings` creates a local marketplace listing draft for an existing `item_inventory` row.
+- `GET /api/v1/marketplace-listings/{marketplaceListingId}` returns one local listing draft with marketplace-specific details and readiness.
+- `PATCH /api/v1/marketplace-listings/{marketplaceListingId}` updates one local listing draft.
+- `DELETE /api/v1/marketplace-listings/{marketplaceListingId}` marks one local listing draft `REMOVED`.
+- `GET /api/v1/inventory/{itemInventoryId}/marketplace-listings` returns all local listing drafts for one inventory row.
+- `GET /api/v1/inventory/{itemInventoryId}/marketplace-readiness?marketplaceCode=BRICKLINK` evaluates whether one inventory row is ready for future marketplace sync.
+
+Phase 3 marketplace rules:
+
+- Phase 3 supports BrickLink local drafts only.
+- Phase 3 does not call BrickLink or eBay APIs and does not enqueue marketplace sync requests.
+- Draft creation requires active inventory, `saleIntentCode=SELLABLE`, `inventoryStateCode=AVAILABLE`, and a BrickLink catalog link.
+- A request may set `updateSaleIntentToSellable=true` to flip an existing inventory row to `SELLABLE` while creating the local draft.
+- An inventory row may have only one open local draft per marketplace.
+- In non-production environments, BrickLink draft details are forced to stockroom-only using `lego.marketplace-listing-drafts.non-prod-bricklink-stockroom-id`.
+- Missing `item_inventory_photos` for a `SELLABLE` inventory row is reported as a readiness warning, not a blocker.

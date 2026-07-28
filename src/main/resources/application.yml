@@ -9,6 +9,10 @@ spring:
 lego:
   data:
     enabled: true
+  marketplace-listing-drafts:
+    production: ${MARKETPLACE_LISTING_DRAFTS_PRODUCTION:false}
+    environment-code: ${MARKETPLACE_LISTING_DRAFTS_ENVIRONMENT_CODE:local}
+    non-prod-bricklink-stockroom-id: ${MARKETPLACE_LISTING_DRAFTS_NON_PROD_BRICKLINK_STOCKROOM_ID:A}
 
 management:
   info:

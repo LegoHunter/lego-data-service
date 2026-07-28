@@ -1,11 +1,14 @@
 package com.vattima.lego.inventory.service.controller;
 
 import com.vattima.lego.inventory.service.api.ItemInventoryService;
+import com.vattima.lego.inventory.service.api.MarketplaceListingService;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryResponse;
 import com.vattima.lego.inventory.service.dto.InventoryDetailsUpdateRequest;
 import com.vattima.lego.inventory.service.dto.InventorySearchResponse;
 import com.vattima.lego.inventory.service.dto.InventoryStateUpdateRequest;
+import com.vattima.lego.inventory.service.dto.MarketplaceListingDraftResponse;
+import com.vattima.lego.inventory.service.dto.MarketplaceListingReadinessResponse;
 import com.vattima.lego.inventory.service.dto.SaleIntentUpdateRequest;
 import com.vattima.lego.inventory.service.logging.LogExecution;
 import jakarta.validation.Valid;
@@ -15,7 +18,14 @@ import io.legohunter.data.dto.ItemInventory;
 import io.legohunter.data.dto.ItemInventorySearchCriteria;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Set;
 
@@ -26,6 +36,7 @@ import java.util.Set;
 public class ItemInventoryController {
 
     private final ItemInventoryService itemInventoryService;
+    private final MarketplaceListingService marketplaceListingService;
     private final ItemInventoryDao itemInventoryDao;
 
     @GetMapping
@@ -50,6 +61,23 @@ public class ItemInventoryController {
     @LogExecution
     public ResponseEntity<ItemInventory> findByUuid(@PathVariable final Integer itemInventoryId) {
         return itemInventoryDao.findByItemInventoryId(itemInventoryId).map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{itemInventoryId}/marketplace-listings")
+    @LogExecution
+    public ResponseEntity<Set<MarketplaceListingDraftResponse>> findMarketplaceListings(
+            @PathVariable final Integer itemInventoryId
+    ) {
+        return ResponseEntity.ok(marketplaceListingService.findByItemInventoryId(itemInventoryId));
+    }
+
+    @GetMapping("/{itemInventoryId}/marketplace-readiness")
+    @LogExecution
+    public ResponseEntity<MarketplaceListingReadinessResponse> evaluateMarketplaceReadiness(
+            @PathVariable final Integer itemInventoryId,
+            @RequestParam(required = false) String marketplaceCode
+    ) {
+        return ResponseEntity.ok(marketplaceListingService.evaluateReadiness(itemInventoryId, marketplaceCode));
     }
 
     @PostMapping
