@@ -8,6 +8,9 @@ import com.vattima.lego.inventory.service.dto.MarketplaceListingDraftResponse;
 import com.vattima.lego.inventory.service.dto.MarketplaceListingDraftUpdateRequest;
 import com.vattima.lego.inventory.service.dto.MarketplaceListingReadinessIssue;
 import com.vattima.lego.inventory.service.dto.MarketplaceListingReadinessResponse;
+import com.vattima.lego.inventory.service.dto.MarketplaceListingSyncRequestCancelRequest;
+import com.vattima.lego.inventory.service.dto.MarketplaceListingSyncRequestCreateRequest;
+import com.vattima.lego.inventory.service.dto.MarketplaceListingSyncRequestPreviewResponse;
 import com.vattima.lego.inventory.service.exception.NotFoundException;
 import com.vattima.lego.inventory.service.exception.ValidationException;
 import com.vattima.lego.inventory.service.validation.MarketplaceListingDraftBusinessValidator;
@@ -17,17 +20,22 @@ import io.legohunter.data.dao.ItemInventoryDao;
 import io.legohunter.data.dao.ItemInventoryExternalCatalogItemDao;
 import io.legohunter.data.dao.ItemInventoryPhotoDao;
 import io.legohunter.data.dao.MarketplaceListingDao;
+import io.legohunter.data.dao.MarketplaceListingSyncRequestDao;
 import io.legohunter.data.dto.BricklinkMarketplaceListing;
 import io.legohunter.data.dto.ExternalService;
 import io.legohunter.data.dto.ItemInventory;
 import io.legohunter.data.dto.ItemInventoryExternalCatalogItem;
+import io.legohunter.data.dto.MarketplaceListingSyncRequest;
 import io.legohunter.data.dto.MarketplaceListing;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -41,6 +49,14 @@ import static io.legohunter.data.dto.ExternalService.Service.BRICKLINK;
 public class MarketplaceListingServiceImpl implements MarketplaceListingService {
     private static final String LISTING_STATUS_DRAFT = "DRAFT";
     private static final String LISTING_STATUS_REMOVED = "REMOVED";
+    private static final String SYNC_REQUEST_TYPE_LISTING_CREATE = "LISTING_CREATE";
+    private static final String SYNC_REQUEST_STATUS_PENDING = "PENDING";
+    private static final String SYNC_REQUEST_STATUS_CLAIMED = "CLAIMED";
+    private static final String SYNC_REQUEST_STATUS_CANCELLED = "CANCELLED";
+    private static final String SYNC_REASON_MANUAL_LISTING_CREATE = "MANUAL_LISTING_CREATE";
+    private static final String CREATED_BY_SERVICE = "LegoDataServiceMarketplaceListingSyncRequest";
+    private static final String REMOTE_SCOPE_PUBLIC = "PUBLIC";
+    private static final String REMOTE_SCOPE_STOCKROOM = "STOCKROOM";
 
     private final BricklinkMarketplaceListingDao bricklinkMarketplaceListingDao;
     private final ExternalServiceDao externalServiceDao;
@@ -48,6 +64,7 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
     private final ItemInventoryExternalCatalogItemDao itemInventoryExternalCatalogItemDao;
     private final ItemInventoryPhotoDao itemInventoryPhotoDao;
     private final MarketplaceListingDao marketplaceListingDao;
+    private final MarketplaceListingSyncRequestDao marketplaceListingSyncRequestDao;
     private final MarketplaceListingDraftBusinessValidator validator;
     private final MarketplaceListingDraftProperties properties;
 
@@ -209,6 +226,136 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
                 .build();
     }
 
+    @Override
+    public MarketplaceListingSyncRequestPreviewResponse previewListingCreateSyncRequest(Integer marketplaceListingId) {
+        MarketplaceListing listing = requireMarketplaceListing(marketplaceListingId);
+        return syncRequestPreview(listing, requestOrDefault(null), Optional.empty());
+    }
+
+    @Override
+    @Transactional
+    public MarketplaceListingSyncRequestPreviewResponse createListingCreateSyncRequest(
+            Integer marketplaceListingId,
+            MarketplaceListingSyncRequestCreateRequest request
+    ) {
+        MarketplaceListing listing = requireMarketplaceListing(marketplaceListingId);
+        MarketplaceListingSyncRequestCreateRequest effectiveRequest = requestOrDefault(request);
+        MarketplaceListingSyncRequestPreviewResponse preview = syncRequestPreview(listing, effectiveRequest, Optional.empty());
+        if (!preview.isReadyForSyncRequest()) {
+            throw new ValidationException("Marketplace listing is not ready for LISTING_CREATE sync: "
+                    + preview.getBlockers().stream()
+                    .map(MarketplaceListingReadinessIssue::getCode)
+                    .collect(Collectors.joining(", ")));
+        }
+        MarketplaceListingSyncRequest inserted = marketplaceListingSyncRequestDao.insert(preview.getSyncRequestCandidate());
+        return syncRequestPreview(listing, effectiveRequest, Optional.of(inserted));
+    }
+
+    @Override
+    public Set<MarketplaceListingSyncRequest> findSyncRequestsByMarketplaceListingId(Integer marketplaceListingId) {
+        requireMarketplaceListing(marketplaceListingId);
+        return marketplaceListingSyncRequestDao.findByMarketplaceListingId(marketplaceListingId);
+    }
+
+    @Override
+    public MarketplaceListingSyncRequest findSyncRequestById(Long marketplaceListingSyncRequestId) {
+        return requireSyncRequest(marketplaceListingSyncRequestId);
+    }
+
+    @Override
+    @Transactional
+    public MarketplaceListingSyncRequest cancelSyncRequest(
+            Long marketplaceListingSyncRequestId,
+            MarketplaceListingSyncRequestCancelRequest request
+    ) {
+        MarketplaceListingSyncRequest syncRequest = requireSyncRequest(marketplaceListingSyncRequestId);
+        if (!SYNC_REQUEST_STATUS_PENDING.equals(syncRequest.getSyncRequestStatusCode())) {
+            throw new ValidationException("Only PENDING marketplace listing sync requests can be cancelled");
+        }
+        syncRequest.setSyncRequestStatusCode(SYNC_REQUEST_STATUS_CANCELLED);
+        syncRequest.setClaimedAt(null);
+        syncRequest.setCompletedAt(ZonedDateTime.now(ZoneOffset.UTC));
+        syncRequest.setLastErrorMessage(cancelReason(request));
+        return marketplaceListingSyncRequestDao.update(syncRequest);
+    }
+
+    private MarketplaceListingSyncRequestPreviewResponse syncRequestPreview(
+            MarketplaceListing listing,
+            MarketplaceListingSyncRequestCreateRequest request,
+            Optional<MarketplaceListingSyncRequest> insertedSyncRequest
+    ) {
+        String syncRequestTypeCode = normalizeSyncRequestTypeCode(request.getSyncRequestTypeCode());
+        String marketplaceCode = requireSupportedMarketplace(serviceCode(listing));
+        MarketplaceListingReadinessResponse readiness = evaluateReadiness(listing.getItemInventoryId(), marketplaceCode);
+        Optional<BricklinkMarketplaceListing> bricklinkListing = bricklinkMarketplaceListingDao
+                .findByMarketplaceListingId(listing.getMarketplaceListingId());
+        Set<MarketplaceListingSyncRequest> activeRequests = marketplaceListingSyncRequestDao
+                .findByMarketplaceListingIdAndSyncRequestTypeCodeAndSyncRequestStatusCodes(
+                        listing.getMarketplaceListingId(),
+                        syncRequestTypeCode,
+                        Set.of(SYNC_REQUEST_STATUS_PENDING, SYNC_REQUEST_STATUS_CLAIMED)
+                );
+        List<MarketplaceListingReadinessIssue> blockers = new ArrayList<>(readiness.getBlockers());
+        if (!SYNC_REQUEST_TYPE_LISTING_CREATE.equals(syncRequestTypeCode)) {
+            blockers.add(blocker(
+                    "UNSUPPORTED_SYNC_REQUEST_TYPE",
+                    "Only LISTING_CREATE marketplace listing sync requests are supported by lego-data-service in Phase 4"
+            ));
+        }
+        bricklinkListing.map(BricklinkMarketplaceListing::getBricklinkInventoryId)
+                .ifPresent(remoteInventoryId -> blockers.add(blocker(
+                        "BRICKLINK_REMOTE_INVENTORY_ALREADY_EXISTS",
+                        "LISTING_CREATE is only valid for local drafts that do not already have a BrickLink inventory id"
+                )));
+        if (!activeRequests.isEmpty() && insertedSyncRequest.isEmpty()) {
+            blockers.add(blocker(
+                    "ACTIVE_SYNC_REQUEST_ALREADY_EXISTS",
+                    "Marketplace listing already has an active LISTING_CREATE sync request"
+            ));
+        }
+        return MarketplaceListingSyncRequestPreviewResponse.builder()
+                .marketplaceListingId(listing.getMarketplaceListingId())
+                .syncRequestTypeCode(syncRequestTypeCode)
+                .readyForSyncRequest(blockers.isEmpty())
+                .syncRequest(insertedSyncRequest.orElse(null))
+                .syncRequestCandidate(syncRequestCandidate(listing, request, syncRequestTypeCode, bricklinkListing))
+                .readiness(readiness)
+                .activeSyncRequests(activeRequests)
+                .blockers(blockers)
+                .warnings(readiness.getWarnings())
+                .build();
+    }
+
+    private MarketplaceListingSyncRequest syncRequestCandidate(
+            MarketplaceListing listing,
+            MarketplaceListingSyncRequestCreateRequest request,
+            String syncRequestTypeCode,
+            Optional<BricklinkMarketplaceListing> bricklinkListing
+    ) {
+        boolean production = properties.isProduction();
+        return MarketplaceListingSyncRequest.builder()
+                .marketplaceListingId(listing.getMarketplaceListingId())
+                .listingExternalServiceId(listing.getListingExternalServiceId())
+                .syncRequestTypeCode(syncRequestTypeCode)
+                .syncRequestStatusCode(SYNC_REQUEST_STATUS_PENDING)
+                .syncReasonCode(syncReasonCode(request.getSyncReasonCode()))
+                .requestedUnitPrice(money(listing.getUnitPrice()))
+                .currencyCode(listing.getCurrencyCode())
+                .remoteInventoryId(bricklinkListing
+                        .map(BricklinkMarketplaceListing::getBricklinkInventoryId)
+                        .map(String::valueOf)
+                        .orElse(null))
+                .remoteVisibilityScopeCode(production ? REMOTE_SCOPE_PUBLIC : REMOTE_SCOPE_STOCKROOM)
+                .remoteVisibilityContainerId(production ? null : properties.getNonProdBricklinkStockroomId())
+                .remoteIsPubliclyAvailable(production)
+                .environmentCode(properties.getEnvironmentCode())
+                .createdByJobName(CREATED_BY_SERVICE)
+                .attemptCount(0)
+                .maxAttempts(request.getMaxAttempts() == null ? 3 : request.getMaxAttempts())
+                .nextAttemptAt(ZonedDateTime.now(ZoneOffset.UTC))
+                .build();
+    }
+
     private void validateDraftPreconditions(
             ItemInventory itemInventory,
             ExternalService marketplace,
@@ -295,6 +442,11 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
                 .orElseThrow(() -> new NotFoundException("Marketplace listing was not found: " + marketplaceListingId));
     }
 
+    private MarketplaceListingSyncRequest requireSyncRequest(Long marketplaceListingSyncRequestId) {
+        return marketplaceListingSyncRequestDao.findByMarketplaceListingSyncRequestId(marketplaceListingSyncRequestId)
+                .orElseThrow(() -> new NotFoundException("Marketplace listing sync request was not found: " + marketplaceListingSyncRequestId));
+    }
+
     private ExternalService requireExternalService(String marketplaceCode) {
         return externalServiceDao.findByServiceCode(marketplaceCode)
                 .orElseThrow(() -> new ValidationException("Marketplace external service was not found: " + marketplaceCode));
@@ -303,9 +455,46 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
     private String requireSupportedMarketplace(String marketplaceCode) {
         String normalizedMarketplaceCode = validator.normalizeMarketplaceCode(marketplaceCode);
         if (!BRICKLINK.getServiceCode().equals(normalizedMarketplaceCode)) {
-            throw new ValidationException("Only BRICKLINK marketplace listing drafts are supported in Phase 3");
+            throw new ValidationException("Only BRICKLINK marketplace listing drafts are supported in Phase 4");
         }
         return normalizedMarketplaceCode;
+    }
+
+    private MarketplaceListingSyncRequestCreateRequest requestOrDefault(MarketplaceListingSyncRequestCreateRequest request) {
+        return request == null ? MarketplaceListingSyncRequestCreateRequest.builder().build() : request;
+    }
+
+    private String normalizeSyncRequestTypeCode(String syncRequestTypeCode) {
+        if (syncRequestTypeCode == null || syncRequestTypeCode.isBlank()) {
+            return SYNC_REQUEST_TYPE_LISTING_CREATE;
+        }
+        return syncRequestTypeCode.trim().toUpperCase();
+    }
+
+    private String syncReasonCode(String syncReasonCode) {
+        if (syncReasonCode == null || syncReasonCode.isBlank()) {
+            return SYNC_REASON_MANUAL_LISTING_CREATE;
+        }
+        return syncReasonCode.trim().toUpperCase();
+    }
+
+    private String cancelReason(MarketplaceListingSyncRequestCancelRequest request) {
+        if (request == null || request.getReason() == null || request.getReason().isBlank()) {
+            return "Cancelled from lego-data-service";
+        }
+        return "Cancelled from lego-data-service: " + request.getReason().trim();
+    }
+
+    private BigDecimal money(BigDecimal value) {
+        return value == null ? null : value.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private MarketplaceListingReadinessIssue blocker(String code, String message) {
+        return MarketplaceListingReadinessIssue.builder()
+                .code(code)
+                .severity(MarketplaceListingDraftBusinessValidator.SEVERITY_BLOCKER)
+                .message(message)
+                .build();
     }
 
     private String serviceCode(MarketplaceListing listing) {

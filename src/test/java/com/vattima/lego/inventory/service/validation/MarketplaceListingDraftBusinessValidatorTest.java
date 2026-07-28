@@ -103,7 +103,7 @@ class MarketplaceListingDraftBusinessValidatorTest {
         );
 
         assertThat(blockers).singleElement()
-                .satisfies(blocker -> assertThat(blocker.getCode()).isEqualTo("INVALID_UNIT_PRICE"));
+                .satisfies(blocker -> assertThat(blocker.getCode()).isEqualTo("MISSING_UNIT_PRICE"));
     }
 
     @Test

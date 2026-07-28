@@ -41,7 +41,7 @@ public class MarketplaceListingDraftBusinessValidator {
         List<MarketplaceListingReadinessIssue> blockers = new ArrayList<>();
         if (!BRICKLINK.getServiceCode().equals(marketplaceCode)) {
             blockers.add(blocker("UNSUPPORTED_MARKETPLACE",
-                    "Only BRICKLINK marketplace listing drafts are supported in Phase 3"));
+                    "Only BRICKLINK marketplace listing drafts are supported in Phase 4"));
             return blockers;
         }
         if (!Boolean.TRUE.equals(itemInventory.getActive())) {
@@ -61,7 +61,10 @@ public class MarketplaceListingDraftBusinessValidator {
                     "Inventory item must have a primary BrickLink catalog link before marketplace sync"));
         }
         Optional.ofNullable(marketplaceListing).ifPresentOrElse(listing -> {
-            if (listing.getUnitPrice() == null || listing.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            if (listing.getUnitPrice() == null) {
+                blockers.add(blocker("MISSING_UNIT_PRICE",
+                        "Marketplace listing must have a unitPrice before marketplace sync"));
+            } else if (listing.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0) {
                 blockers.add(blocker("INVALID_UNIT_PRICE",
                         "Marketplace listing must have a positive unitPrice before marketplace sync"));
             }

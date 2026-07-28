@@ -6,6 +6,9 @@ import com.vattima.lego.inventory.service.dto.MarketplaceListingDraftCreateReque
 import com.vattima.lego.inventory.service.dto.MarketplaceListingDraftResponse;
 import com.vattima.lego.inventory.service.dto.MarketplaceListingDraftUpdateRequest;
 import com.vattima.lego.inventory.service.dto.MarketplaceListingReadinessResponse;
+import com.vattima.lego.inventory.service.dto.MarketplaceListingSyncRequestCancelRequest;
+import com.vattima.lego.inventory.service.dto.MarketplaceListingSyncRequestCreateRequest;
+import com.vattima.lego.inventory.service.dto.MarketplaceListingSyncRequestPreviewResponse;
 import com.vattima.lego.inventory.service.exception.NotFoundException;
 import com.vattima.lego.inventory.service.exception.ValidationException;
 import com.vattima.lego.inventory.service.validation.MarketplaceListingDraftBusinessValidator;
@@ -15,6 +18,7 @@ import io.legohunter.data.dao.ItemInventoryDao;
 import io.legohunter.data.dao.ItemInventoryExternalCatalogItemDao;
 import io.legohunter.data.dao.ItemInventoryPhotoDao;
 import io.legohunter.data.dao.MarketplaceListingDao;
+import io.legohunter.data.dao.MarketplaceListingSyncRequestDao;
 import io.legohunter.data.dto.BricklinkMarketplaceListing;
 import io.legohunter.data.dto.ExternalCatalogItem;
 import io.legohunter.data.dto.ExternalService;
@@ -22,6 +26,7 @@ import io.legohunter.data.dto.ItemInventory;
 import io.legohunter.data.dto.ItemInventoryExternalCatalogItem;
 import io.legohunter.data.dto.ItemInventoryPhoto;
 import io.legohunter.data.dto.MarketplaceListing;
+import io.legohunter.data.dto.MarketplaceListingSyncRequest;
 import io.legohunter.data.enums.PhotoStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,6 +54,7 @@ class MarketplaceListingServiceImplTest {
     @Mock private ItemInventoryExternalCatalogItemDao itemInventoryExternalCatalogItemDao;
     @Mock private ItemInventoryPhotoDao itemInventoryPhotoDao;
     @Mock private MarketplaceListingDao marketplaceListingDao;
+    @Mock private MarketplaceListingSyncRequestDao marketplaceListingSyncRequestDao;
 
     private MarketplaceListingDraftProperties properties;
     private MarketplaceListingServiceImpl service;
@@ -65,6 +71,7 @@ class MarketplaceListingServiceImplTest {
                 itemInventoryExternalCatalogItemDao,
                 itemInventoryPhotoDao,
                 marketplaceListingDao,
+                marketplaceListingSyncRequestDao,
                 new MarketplaceListingDraftBusinessValidator(),
                 properties
         );
@@ -110,6 +117,30 @@ class MarketplaceListingServiceImplTest {
         assertThat(bricklinkCaptor.getValue().getStockRoomId()).isEqualTo("A");
         assertThat(bricklinkCaptor.getValue().getEnvironmentCode()).isEqualTo("sandbox");
         assertThat(bricklinkCaptor.getValue().getLastRemoteSafetyStatusCode()).isEqualTo("NOT_VERIFIED");
+    }
+
+    @Test
+    void createDraftAllowsMissingUnitPriceSoPricingPlaneCanPopulateItLater() {
+        ItemInventory inventory = inventory("SELLABLE", "AVAILABLE", true);
+        MarketplaceListing persistedListing = listing(101, inventory.getItemInventoryId(), null, "DRAFT");
+        BricklinkMarketplaceListing persistedBricklink = BricklinkMarketplaceListing.builder()
+                .marketplaceListingId(101)
+                .isStockRoom(true)
+                .stockRoomId("A")
+                .environmentCode("sandbox")
+                .build();
+        stubCreateInputs(inventory, Set.of(), persistedListing, persistedBricklink);
+
+        MarketplaceListingDraftResponse response = service.createDraft(MarketplaceListingDraftCreateRequest.builder()
+                .itemInventoryId(202)
+                .marketplaceCode("BRICKLINK")
+                .currencyCode("USD")
+                .build());
+
+        assertThat(response.getMarketplaceListing().getUnitPrice()).isNull();
+        assertThat(response.getReadiness().isReadyForMarketplaceSync()).isFalse();
+        assertThat(response.getReadiness().getBlockers()).extracting("code")
+                .contains("MISSING_UNIT_PRICE");
     }
 
     @Test
@@ -479,6 +510,137 @@ class MarketplaceListingServiceImplTest {
     }
 
     @Test
+    void previewListingCreateSyncRequestReturnsCandidateAndReadinessBlockersWithoutWriting() {
+        MarketplaceListing listing = listing(101, 202, null, "DRAFT");
+        stubReadyListing(listing, bricklinkDraft(null));
+        when(marketplaceListingSyncRequestDao.findByMarketplaceListingIdAndSyncRequestTypeCodeAndSyncRequestStatusCodes(
+                101,
+                "LISTING_CREATE",
+                Set.of("PENDING", "CLAIMED")
+        )).thenReturn(Set.of());
+
+        MarketplaceListingSyncRequestPreviewResponse response = service.previewListingCreateSyncRequest(101);
+
+        assertThat(response.isReadyForSyncRequest()).isFalse();
+        assertThat(response.getSyncRequestCandidate().getSyncRequestTypeCode()).isEqualTo("LISTING_CREATE");
+        assertThat(response.getSyncRequestCandidate().getRequestedUnitPrice()).isNull();
+        assertThat(response.getBlockers()).extracting("code").contains("MISSING_UNIT_PRICE");
+        verify(marketplaceListingSyncRequestDao, never()).insert(any());
+    }
+
+    @Test
+    void createListingCreateSyncRequestPersistsPendingRequestWhenDraftIsReady() {
+        MarketplaceListing listing = listing(101, 202, new BigDecimal("42.125"), "DRAFT");
+        MarketplaceListingSyncRequest inserted = syncRequest(900L, 101, "LISTING_CREATE", "PENDING");
+        stubReadyListing(listing, bricklinkDraft(null));
+        when(marketplaceListingSyncRequestDao.findByMarketplaceListingIdAndSyncRequestTypeCodeAndSyncRequestStatusCodes(
+                101,
+                "LISTING_CREATE",
+                Set.of("PENDING", "CLAIMED")
+        )).thenReturn(Set.of());
+        when(marketplaceListingSyncRequestDao.insert(any(MarketplaceListingSyncRequest.class))).thenReturn(inserted);
+
+        MarketplaceListingSyncRequestPreviewResponse response = service.createListingCreateSyncRequest(101,
+                MarketplaceListingSyncRequestCreateRequest.builder()
+                        .syncReasonCode("manual_approval")
+                        .maxAttempts(5)
+                        .build());
+
+        assertThat(response.isReadyForSyncRequest()).isTrue();
+        assertThat(response.getSyncRequest()).isSameAs(inserted);
+        ArgumentCaptor<MarketplaceListingSyncRequest> captor = ArgumentCaptor.forClass(MarketplaceListingSyncRequest.class);
+        verify(marketplaceListingSyncRequestDao).insert(captor.capture());
+        assertThat(captor.getValue().getSyncRequestTypeCode()).isEqualTo("LISTING_CREATE");
+        assertThat(captor.getValue().getSyncRequestStatusCode()).isEqualTo("PENDING");
+        assertThat(captor.getValue().getSyncReasonCode()).isEqualTo("MANUAL_APPROVAL");
+        assertThat(captor.getValue().getRequestedUnitPrice()).isEqualByComparingTo("42.13");
+        assertThat(captor.getValue().getRemoteVisibilityScopeCode()).isEqualTo("STOCKROOM");
+        assertThat(captor.getValue().getRemoteVisibilityContainerId()).isEqualTo("A");
+        assertThat(captor.getValue().getRemoteIsPubliclyAvailable()).isFalse();
+        assertThat(captor.getValue().getMaxAttempts()).isEqualTo(5);
+    }
+
+    @Test
+    void createListingCreateSyncRequestRejectsDuplicateActiveRequest() {
+        MarketplaceListing listing = listing(101, 202, new BigDecimal("42.00"), "DRAFT");
+        stubReadyListing(listing, bricklinkDraft(null));
+        when(marketplaceListingSyncRequestDao.findByMarketplaceListingIdAndSyncRequestTypeCodeAndSyncRequestStatusCodes(
+                101,
+                "LISTING_CREATE",
+                Set.of("PENDING", "CLAIMED")
+        )).thenReturn(Set.of(syncRequest(900L, 101, "LISTING_CREATE", "PENDING")));
+
+        assertThatThrownBy(() -> service.createListingCreateSyncRequest(101, MarketplaceListingSyncRequestCreateRequest.builder().build()))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("ACTIVE_SYNC_REQUEST_ALREADY_EXISTS");
+        verify(marketplaceListingSyncRequestDao, never()).insert(any());
+    }
+
+    @Test
+    void createListingCreateSyncRequestRejectsListingThatAlreadyHasRemoteInventoryId() {
+        MarketplaceListing listing = listing(101, 202, new BigDecimal("42.00"), "DRAFT");
+        stubReadyListing(listing, bricklinkDraft(12345));
+        when(marketplaceListingSyncRequestDao.findByMarketplaceListingIdAndSyncRequestTypeCodeAndSyncRequestStatusCodes(
+                101,
+                "LISTING_CREATE",
+                Set.of("PENDING", "CLAIMED")
+        )).thenReturn(Set.of());
+
+        assertThatThrownBy(() -> service.createListingCreateSyncRequest(101, MarketplaceListingSyncRequestCreateRequest.builder().build()))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("BRICKLINK_REMOTE_INVENTORY_ALREADY_EXISTS");
+        verify(marketplaceListingSyncRequestDao, never()).insert(any());
+    }
+
+    @Test
+    void findSyncRequestsDelegatesAfterListingExists() {
+        MarketplaceListing listing = listing(101, 202, new BigDecimal("42.00"), "DRAFT");
+        MarketplaceListingSyncRequest syncRequest = syncRequest(900L, 101, "LISTING_CREATE", "PENDING");
+        when(marketplaceListingDao.findByMarketplaceListingId(101)).thenReturn(Optional.of(listing));
+        when(marketplaceListingSyncRequestDao.findByMarketplaceListingId(101)).thenReturn(Set.of(syncRequest));
+
+        assertThat(service.findSyncRequestsByMarketplaceListingId(101)).containsExactly(syncRequest);
+    }
+
+    @Test
+    void findSyncRequestByIdReturnsRequestOrThrows() {
+        MarketplaceListingSyncRequest syncRequest = syncRequest(900L, 101, "LISTING_CREATE", "PENDING");
+        when(marketplaceListingSyncRequestDao.findByMarketplaceListingSyncRequestId(900L)).thenReturn(Optional.of(syncRequest));
+        when(marketplaceListingSyncRequestDao.findByMarketplaceListingSyncRequestId(404L)).thenReturn(Optional.empty());
+
+        assertThat(service.findSyncRequestById(900L)).isSameAs(syncRequest);
+        assertThatThrownBy(() -> service.findSyncRequestById(404L))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Marketplace listing sync request was not found: 404");
+    }
+
+    @Test
+    void cancelSyncRequestMarksPendingRequestCancelled() {
+        MarketplaceListingSyncRequest syncRequest = syncRequest(900L, 101, "LISTING_CREATE", "PENDING");
+        when(marketplaceListingSyncRequestDao.findByMarketplaceListingSyncRequestId(900L)).thenReturn(Optional.of(syncRequest));
+        when(marketplaceListingSyncRequestDao.update(syncRequest)).thenReturn(syncRequest);
+
+        MarketplaceListingSyncRequest response = service.cancelSyncRequest(900L,
+                MarketplaceListingSyncRequestCancelRequest.builder()
+                        .reason("bad draft")
+                        .build());
+
+        assertThat(response.getSyncRequestStatusCode()).isEqualTo("CANCELLED");
+        assertThat(response.getCompletedAt()).isNotNull();
+        assertThat(response.getLastErrorMessage()).isEqualTo("Cancelled from lego-data-service: bad draft");
+    }
+
+    @Test
+    void cancelSyncRequestRejectsNonPendingRequest() {
+        when(marketplaceListingSyncRequestDao.findByMarketplaceListingSyncRequestId(900L))
+                .thenReturn(Optional.of(syncRequest(900L, 101, "LISTING_CREATE", "CLAIMED")));
+
+        assertThatThrownBy(() -> service.cancelSyncRequest(900L, null))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("Only PENDING marketplace listing sync requests can be cancelled");
+    }
+
+    @Test
     void findByMarketplaceListingIdThrowsNotFoundWhenMissing() {
         when(marketplaceListingDao.findByMarketplaceListingId(404)).thenReturn(Optional.empty());
 
@@ -496,7 +658,7 @@ class MarketplaceListingServiceImplTest {
                 .currencyCode("USD")
                 .build()))
                 .isInstanceOf(ValidationException.class)
-                .hasMessage("Only BRICKLINK marketplace listing drafts are supported in Phase 3");
+                .hasMessage("Only BRICKLINK marketplace listing drafts are supported in Phase 4");
     }
 
     private void stubCreateInputs(
@@ -513,6 +675,15 @@ class MarketplaceListingServiceImplTest {
         when(bricklinkMarketplaceListingDao.insert(any(BricklinkMarketplaceListing.class))).thenReturn(persistedBricklink);
         when(bricklinkMarketplaceListingDao.findByMarketplaceListingId(101)).thenReturn(Optional.of(persistedBricklink));
         when(itemInventoryPhotoDao.findByItemInventoryId(202)).thenReturn(photos);
+    }
+
+    private void stubReadyListing(MarketplaceListing listing, BricklinkMarketplaceListing bricklinkListing) {
+        when(marketplaceListingDao.findByMarketplaceListingId(listing.getMarketplaceListingId())).thenReturn(Optional.of(listing));
+        when(itemInventoryDao.findByItemInventoryId(listing.getItemInventoryId())).thenReturn(Optional.of(inventory("SELLABLE", "AVAILABLE", true)));
+        when(itemInventoryExternalCatalogItemDao.findByItemInventoryId(listing.getItemInventoryId())).thenReturn(Set.of(primaryBricklinkCatalogLink()));
+        when(marketplaceListingDao.findByItemInventoryId(listing.getItemInventoryId())).thenReturn(Set.of(listing));
+        when(bricklinkMarketplaceListingDao.findByMarketplaceListingId(listing.getMarketplaceListingId())).thenReturn(Optional.of(bricklinkListing));
+        when(itemInventoryPhotoDao.findByItemInventoryId(listing.getItemInventoryId())).thenReturn(Set.of());
     }
 
     private ItemInventory inventory(String saleIntentCode, String inventoryStateCode, boolean active) {
@@ -540,6 +711,34 @@ class MarketplaceListingServiceImplTest {
                 .listingStatusCode(status)
                 .unitPrice(unitPrice)
                 .currencyCode("USD")
+                .build();
+    }
+
+    private BricklinkMarketplaceListing bricklinkDraft(Integer bricklinkInventoryId) {
+        return BricklinkMarketplaceListing.builder()
+                .marketplaceListingId(101)
+                .bricklinkInventoryId(bricklinkInventoryId)
+                .isStockRoom(true)
+                .stockRoomId("A")
+                .build();
+    }
+
+    private MarketplaceListingSyncRequest syncRequest(
+            Long marketplaceListingSyncRequestId,
+            Integer marketplaceListingId,
+            String syncRequestTypeCode,
+            String syncRequestStatusCode
+    ) {
+        return MarketplaceListingSyncRequest.builder()
+                .marketplaceListingSyncRequestId(marketplaceListingSyncRequestId)
+                .marketplaceListingId(marketplaceListingId)
+                .listingExternalServiceId(2)
+                .syncRequestTypeCode(syncRequestTypeCode)
+                .syncRequestStatusCode(syncRequestStatusCode)
+                .syncReasonCode("MANUAL_LISTING_CREATE")
+                .requestedUnitPrice(new BigDecimal("42.00"))
+                .currencyCode("USD")
+                .environmentCode("sandbox")
                 .build();
     }
 

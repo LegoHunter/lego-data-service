@@ -54,22 +54,29 @@ Phase 2 correction rules:
 - Corrections do not create marketplace listings and do not enqueue marketplace sync requests.
 - Missing resources return structured `404` responses; validation and business-rule failures return structured `400` responses.
 
-Phase 3 marketplace listing draft/readiness behavior:
+Phase 3/4 marketplace listing draft/readiness behavior:
 
 - `POST /api/v1/marketplace-listings` creates a local marketplace listing draft for an existing `item_inventory` row.
 - `GET /api/v1/marketplace-listings/{marketplaceListingId}` returns one local listing draft with marketplace-specific details and readiness.
 - `PATCH /api/v1/marketplace-listings/{marketplaceListingId}` updates one local listing draft.
 - `DELETE /api/v1/marketplace-listings/{marketplaceListingId}` marks one local listing draft `REMOVED`.
+- `GET /api/v1/marketplace-listings/{marketplaceListingId}/sync-request-preview` previews whether a local BrickLink draft can create a durable `LISTING_CREATE` sync request.
+- `POST /api/v1/marketplace-listings/{marketplaceListingId}/sync-requests` creates a pending local `LISTING_CREATE` sync request when readiness has no blockers.
+- `GET /api/v1/marketplace-listings/{marketplaceListingId}/sync-requests` lists sync requests for one marketplace listing.
+- `GET /api/v1/marketplace-listings/sync-requests/{marketplaceListingSyncRequestId}` returns one sync request.
+- `PATCH /api/v1/marketplace-listings/sync-requests/{marketplaceListingSyncRequestId}/cancel` cancels a pending sync request.
 - `GET /api/v1/inventory/{itemInventoryId}/marketplace-listings` returns all local listing drafts for one inventory row.
 - `GET /api/v1/inventory/{itemInventoryId}/marketplace-readiness?marketplaceCode=BRICKLINK` evaluates whether one inventory row is ready for future marketplace sync.
 
-Phase 3 marketplace rules:
+Phase 3/4 marketplace rules:
 
-- Phase 3 supports BrickLink local drafts only.
-- Phase 3 does not call BrickLink or eBay APIs and does not enqueue marketplace sync requests.
+- Phase 4 supports BrickLink local drafts and local `LISTING_CREATE` sync request rows only.
+- Phase 4 does not call BrickLink or eBay APIs.
 - Draft creation requires active inventory, `saleIntentCode=SELLABLE`, `inventoryStateCode=AVAILABLE`, and a BrickLink catalog link.
+- Draft creation may omit `unitPrice`; unpriced drafts are eligible for Pricing Plane onboarding but blocked from sync readiness with `MISSING_UNIT_PRICE`.
 - A request may set `updateSaleIntentToSellable=true` to flip an existing inventory row to `SELLABLE` while creating the local draft.
 - An inventory row may have only one open local draft per marketplace.
+- `LISTING_CREATE` sync request creation requires a ready local draft, positive `unitPrice`, no existing remote BrickLink inventory id, and no active duplicate `PENDING` or `CLAIMED` `LISTING_CREATE` request.
 - In non-production environments, BrickLink draft details are forced to stockroom-only using `lego.marketplace-listing-drafts.non-prod-bricklink-stockroom-id`.
 - The intended BrickLink stockroom mapping is `sandbox=C`, `dev=B`, and `prod=A`.
 - The default unprofiled/local stockroom is `C` unless overridden with `MARKETPLACE_LISTING_DRAFTS_NON_PROD_BRICKLINK_STOCKROOM_ID`.
