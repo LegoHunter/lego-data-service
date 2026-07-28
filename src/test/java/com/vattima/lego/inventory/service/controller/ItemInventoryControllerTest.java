@@ -1,11 +1,14 @@
 package com.vattima.lego.inventory.service.controller;
 
 import com.vattima.lego.inventory.service.api.ItemInventoryService;
+import com.vattima.lego.inventory.service.api.MarketplaceListingService;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryResponse;
 import com.vattima.lego.inventory.service.dto.InventoryDetailsUpdateRequest;
 import com.vattima.lego.inventory.service.dto.InventorySearchResponse;
 import com.vattima.lego.inventory.service.dto.InventoryStateUpdateRequest;
+import com.vattima.lego.inventory.service.dto.MarketplaceListingDraftResponse;
+import com.vattima.lego.inventory.service.dto.MarketplaceListingReadinessResponse;
 import com.vattima.lego.inventory.service.dto.SaleIntentUpdateRequest;
 import io.legohunter.data.dao.ItemInventoryDao;
 import io.legohunter.data.dto.ItemInventory;
@@ -31,6 +34,9 @@ class ItemInventoryControllerTest {
 
     @Mock
     private ItemInventoryDao itemInventoryDao;
+
+    @Mock
+    private MarketplaceListingService marketplaceListingService;
 
     @Test
     void findAllReturnsInventoryRows() {
@@ -99,6 +105,34 @@ class ItemInventoryControllerTest {
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getBody()).isSameAs(serviceResponse);
         verify(itemInventoryService).addItemInventory(request);
+    }
+
+    @Test
+    void findMarketplaceListingsDelegatesToService() {
+        MarketplaceListingDraftResponse serviceResponse = MarketplaceListingDraftResponse.builder().build();
+        when(marketplaceListingService.findByItemInventoryId(202)).thenReturn(Set.of(serviceResponse));
+
+        ResponseEntity<Set<MarketplaceListingDraftResponse>> response = controller().findMarketplaceListings(202);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).containsExactly(serviceResponse);
+        verify(marketplaceListingService).findByItemInventoryId(202);
+    }
+
+    @Test
+    void evaluateMarketplaceReadinessDelegatesToService() {
+        MarketplaceListingReadinessResponse serviceResponse = MarketplaceListingReadinessResponse.builder()
+                .itemInventoryId(202)
+                .marketplaceCode("BRICKLINK")
+                .build();
+        when(marketplaceListingService.evaluateReadiness(202, "BRICKLINK")).thenReturn(serviceResponse);
+
+        ResponseEntity<MarketplaceListingReadinessResponse> response = controller()
+                .evaluateMarketplaceReadiness(202, "BRICKLINK");
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).isSameAs(serviceResponse);
+        verify(marketplaceListingService).evaluateReadiness(202, "BRICKLINK");
     }
 
     @Test
@@ -179,6 +213,6 @@ class ItemInventoryControllerTest {
     }
 
     private ItemInventoryController controller() {
-        return new ItemInventoryController(itemInventoryService, itemInventoryDao);
+        return new ItemInventoryController(itemInventoryService, marketplaceListingService, itemInventoryDao);
     }
 }
