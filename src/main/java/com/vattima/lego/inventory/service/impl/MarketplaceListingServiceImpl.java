@@ -189,8 +189,8 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
                 itemInventory,
                 normalizedMarketplaceCode,
                 catalogLinks,
-                listing,
-                bricklinkListing,
+                listing.orElse(null),
+                bricklinkListing.orElse(null),
                 properties
         );
         List<MarketplaceListingReadinessIssue> warnings = validator.warnings(

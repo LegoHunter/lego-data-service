@@ -1,0 +1,5 @@
+lego:
+  marketplace-listing-drafts:
+    production: false
+    environment-code: dev
+    non-prod-bricklink-stockroom-id: B

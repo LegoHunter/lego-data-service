@@ -71,4 +71,6 @@ Phase 3 marketplace rules:
 - A request may set `updateSaleIntentToSellable=true` to flip an existing inventory row to `SELLABLE` while creating the local draft.
 - An inventory row may have only one open local draft per marketplace.
 - In non-production environments, BrickLink draft details are forced to stockroom-only using `lego.marketplace-listing-drafts.non-prod-bricklink-stockroom-id`.
+- The intended BrickLink stockroom mapping is `sandbox=C`, `dev=B`, and `prod=A`.
+- The default unprofiled/local stockroom is `C` unless overridden with `MARKETPLACE_LISTING_DRAFTS_NON_PROD_BRICKLINK_STOCKROOM_ID`.
 - Missing `item_inventory_photos` for a `SELLABLE` inventory row is reported as a readiness warning, not a blocker.

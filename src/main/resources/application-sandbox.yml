@@ -15,6 +15,12 @@ spring:
       validation-timeout: 10000
       pool-name: rasppi5-01-mysql-jdbc-pool
 
+lego:
+  marketplace-listing-drafts:
+    production: false
+    environment-code: sandbox
+    non-prod-bricklink-stockroom-id: C
+
 logging:
   level:
     com.zaxxer: DEBUG

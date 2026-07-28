@@ -34,8 +34,8 @@ public class MarketplaceListingDraftBusinessValidator {
             ItemInventory itemInventory,
             String marketplaceCode,
             Set<ItemInventoryExternalCatalogItem> catalogLinks,
-            Optional<MarketplaceListing> marketplaceListing,
-            Optional<BricklinkMarketplaceListing> bricklinkMarketplaceListing,
+            MarketplaceListing marketplaceListing,
+            BricklinkMarketplaceListing bricklinkMarketplaceListing,
             MarketplaceListingDraftProperties properties
     ) {
         List<MarketplaceListingReadinessIssue> blockers = new ArrayList<>();
@@ -60,7 +60,7 @@ public class MarketplaceListingDraftBusinessValidator {
             blockers.add(blocker("MISSING_PRIMARY_BRICKLINK_CATALOG_LINK",
                     "Inventory item must have a primary BrickLink catalog link before marketplace sync"));
         }
-        marketplaceListing.ifPresentOrElse(listing -> {
+        Optional.ofNullable(marketplaceListing).ifPresentOrElse(listing -> {
             if (listing.getUnitPrice() == null || listing.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0) {
                 blockers.add(blocker("INVALID_UNIT_PRICE",
                         "Marketplace listing must have a positive unitPrice before marketplace sync"));
@@ -126,20 +126,19 @@ public class MarketplaceListingDraftBusinessValidator {
 
     private void addNonProdBricklinkBlockers(
             List<MarketplaceListingReadinessIssue> blockers,
-            Optional<BricklinkMarketplaceListing> bricklinkMarketplaceListing,
+            BricklinkMarketplaceListing bricklinkMarketplaceListing,
             MarketplaceListingDraftProperties properties
     ) {
-        if (bricklinkMarketplaceListing.isEmpty()) {
+        if (bricklinkMarketplaceListing == null) {
             blockers.add(blocker("MISSING_BRICKLINK_LISTING_DETAILS",
                     "Non-production BrickLink drafts must include BrickLink stockroom details before marketplace sync"));
             return;
         }
-        BricklinkMarketplaceListing bricklink = bricklinkMarketplaceListing.get();
-        if (!Boolean.TRUE.equals(bricklink.getIsStockRoom())) {
+        if (!Boolean.TRUE.equals(bricklinkMarketplaceListing.getIsStockRoom())) {
             blockers.add(blocker("NON_PROD_BRICKLINK_STOCKROOM_REQUIRED",
                     "Non-production BrickLink drafts must remain stockroom-only before marketplace sync"));
         }
-        if (!properties.getNonProdBricklinkStockroomId().equals(bricklink.getStockRoomId())) {
+        if (!properties.getNonProdBricklinkStockroomId().equals(bricklinkMarketplaceListing.getStockRoomId())) {
             blockers.add(blocker("NON_PROD_BRICKLINK_STOCKROOM_ID_REQUIRED",
                     "Non-production BrickLink drafts must target stockroom "
                             + properties.getNonProdBricklinkStockroomId() + " before marketplace sync"));

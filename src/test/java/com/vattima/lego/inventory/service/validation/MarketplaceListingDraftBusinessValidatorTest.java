@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,8 +42,8 @@ class MarketplaceListingDraftBusinessValidatorTest {
                 inventory("KEEP", "RESERVED", false),
                 "EBAY",
                 Set.of(),
-                Optional.empty(),
-                Optional.empty(),
+                null,
+                null,
                 properties
         );
 
@@ -58,8 +57,8 @@ class MarketplaceListingDraftBusinessValidatorTest {
                 inventory("KEEP", "RESERVED_FOR_ORDER", false),
                 "BRICKLINK",
                 Set.of(),
-                Optional.empty(),
-                Optional.empty(),
+                null,
+                null,
                 properties
         );
 
@@ -79,8 +78,8 @@ class MarketplaceListingDraftBusinessValidatorTest {
                 inventory("SELLABLE", "AVAILABLE", true),
                 "BRICKLINK",
                 Set.of(primaryBricklinkCatalogLink(303)),
-                Optional.of(listing(101, new BigDecimal("0.00"), "DRAFT")),
-                Optional.empty(),
+                listing(101, new BigDecimal("0.00"), "DRAFT"),
+                null,
                 properties
         );
 
@@ -94,12 +93,12 @@ class MarketplaceListingDraftBusinessValidatorTest {
                 inventory("SELLABLE", "AVAILABLE", true),
                 "BRICKLINK",
                 Set.of(primaryBricklinkCatalogLink(303)),
-                Optional.of(listing(101, null, "DRAFT")),
-                Optional.of(BricklinkMarketplaceListing.builder()
+                listing(101, null, "DRAFT"),
+                BricklinkMarketplaceListing.builder()
                         .marketplaceListingId(101)
                         .isStockRoom(true)
                         .stockRoomId("A")
-                        .build()),
+                        .build(),
                 properties
         );
 
@@ -113,12 +112,12 @@ class MarketplaceListingDraftBusinessValidatorTest {
                 inventory("SELLABLE", "AVAILABLE", true),
                 "BRICKLINK",
                 Set.of(primaryBricklinkCatalogLink(303)),
-                Optional.of(listing(101, new BigDecimal("12.00"), "DRAFT")),
-                Optional.of(BricklinkMarketplaceListing.builder()
+                listing(101, new BigDecimal("12.00"), "DRAFT"),
+                BricklinkMarketplaceListing.builder()
                         .marketplaceListingId(101)
                         .isStockRoom(false)
                         .stockRoomId("B")
-                        .build()),
+                        .build(),
                 properties
         );
 
@@ -134,8 +133,8 @@ class MarketplaceListingDraftBusinessValidatorTest {
                 inventory("SELLABLE", "AVAILABLE", true),
                 "BRICKLINK",
                 Set.of(primaryBricklinkCatalogLink(303)),
-                Optional.of(listing(101, new BigDecimal("12.00"), "DRAFT")),
-                Optional.empty(),
+                listing(101, new BigDecimal("12.00"), "DRAFT"),
+                null,
                 properties
         );
 
