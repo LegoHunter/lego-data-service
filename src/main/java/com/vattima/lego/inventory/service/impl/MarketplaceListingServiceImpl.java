@@ -108,20 +108,23 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
         BricklinkMarketplaceListing persistedBricklink = bricklinkMarketplaceListingDao.insert(
                 toBricklinkMarketplaceListing(persistedListing.getMarketplaceListingId(), request.getBricklink())
         );
-        return toResponse(persistedListing, Optional.of(persistedBricklink));
+        return toResponse(persistedListing, persistedBricklink);
     }
 
     @Override
     public MarketplaceListingDraftResponse findByMarketplaceListingId(Integer marketplaceListingId) {
         MarketplaceListing listing = requireMarketplaceListing(marketplaceListingId);
-        return toResponse(listing, bricklinkMarketplaceListingDao.findByMarketplaceListingId(marketplaceListingId));
+        return toResponse(listing, bricklinkMarketplaceListingDao.findByMarketplaceListingId(marketplaceListingId).orElse(null));
     }
 
     @Override
     public Set<MarketplaceListingDraftResponse> findByItemInventoryId(Integer itemInventoryId) {
         requireInventory(itemInventoryId);
         return marketplaceListingDao.findByItemInventoryId(itemInventoryId).stream()
-                .map(listing -> toResponse(listing, bricklinkMarketplaceListingDao.findByMarketplaceListingId(listing.getMarketplaceListingId())))
+                .map(listing -> toResponse(
+                        listing,
+                        bricklinkMarketplaceListingDao.findByMarketplaceListingId(listing.getMarketplaceListingId()).orElse(null)
+                ))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
@@ -174,7 +177,7 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
         BricklinkMarketplaceListing persistedBricklink = existingBricklink.isPresent()
                 ? bricklinkMarketplaceListingDao.update(bricklink)
                 : bricklinkMarketplaceListingDao.insert(bricklink);
-        return toResponse(persistedListing, Optional.of(persistedBricklink));
+        return toResponse(persistedListing, persistedBricklink);
     }
 
     @Override
@@ -185,7 +188,7 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
         listing.setEndedAt(ZonedDateTime.now(ZoneOffset.UTC));
         return toResponse(
                 marketplaceListingDao.update(listing),
-                bricklinkMarketplaceListingDao.findByMarketplaceListingId(marketplaceListingId)
+                bricklinkMarketplaceListingDao.findByMarketplaceListingId(marketplaceListingId).orElse(null)
         );
     }
 
@@ -229,7 +232,7 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
     @Override
     public MarketplaceListingSyncRequestPreviewResponse previewListingCreateSyncRequest(Integer marketplaceListingId) {
         MarketplaceListing listing = requireMarketplaceListing(marketplaceListingId);
-        return syncRequestPreview(listing, requestOrDefault(null), Optional.empty());
+        return syncRequestPreview(listing, requestOrDefault(null), null);
     }
 
     @Override
@@ -240,7 +243,7 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
     ) {
         MarketplaceListing listing = requireMarketplaceListing(marketplaceListingId);
         MarketplaceListingSyncRequestCreateRequest effectiveRequest = requestOrDefault(request);
-        MarketplaceListingSyncRequestPreviewResponse preview = syncRequestPreview(listing, effectiveRequest, Optional.empty());
+        MarketplaceListingSyncRequestPreviewResponse preview = syncRequestPreview(listing, effectiveRequest, null);
         if (!preview.isReadyForSyncRequest()) {
             throw new ValidationException("Marketplace listing is not ready for LISTING_CREATE sync: "
                     + preview.getBlockers().stream()
@@ -248,7 +251,7 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
                     .collect(Collectors.joining(", ")));
         }
         MarketplaceListingSyncRequest inserted = marketplaceListingSyncRequestDao.insert(preview.getSyncRequestCandidate());
-        return syncRequestPreview(listing, effectiveRequest, Optional.of(inserted));
+        return syncRequestPreview(listing, effectiveRequest, inserted);
     }
 
     @Override
@@ -282,7 +285,7 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
     private MarketplaceListingSyncRequestPreviewResponse syncRequestPreview(
             MarketplaceListing listing,
             MarketplaceListingSyncRequestCreateRequest request,
-            Optional<MarketplaceListingSyncRequest> insertedSyncRequest
+            MarketplaceListingSyncRequest insertedSyncRequest
     ) {
         String syncRequestTypeCode = normalizeSyncRequestTypeCode(request.getSyncRequestTypeCode());
         String marketplaceCode = requireSupportedMarketplace(serviceCode(listing));
@@ -307,7 +310,7 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
                         "BRICKLINK_REMOTE_INVENTORY_ALREADY_EXISTS",
                         "LISTING_CREATE is only valid for local drafts that do not already have a BrickLink inventory id"
                 )));
-        if (!activeRequests.isEmpty() && insertedSyncRequest.isEmpty()) {
+        if (!activeRequests.isEmpty() && insertedSyncRequest == null) {
             blockers.add(blocker(
                     "ACTIVE_SYNC_REQUEST_ALREADY_EXISTS",
                     "Marketplace listing already has an active LISTING_CREATE sync request"
@@ -317,8 +320,8 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
                 .marketplaceListingId(listing.getMarketplaceListingId())
                 .syncRequestTypeCode(syncRequestTypeCode)
                 .readyForSyncRequest(blockers.isEmpty())
-                .syncRequest(insertedSyncRequest.orElse(null))
-                .syncRequestCandidate(syncRequestCandidate(listing, request, syncRequestTypeCode, bricklinkListing))
+                .syncRequest(insertedSyncRequest)
+                .syncRequestCandidate(syncRequestCandidate(listing, request, syncRequestTypeCode, bricklinkListing.orElse(null)))
                 .readiness(readiness)
                 .activeSyncRequests(activeRequests)
                 .blockers(blockers)
@@ -330,7 +333,7 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
             MarketplaceListing listing,
             MarketplaceListingSyncRequestCreateRequest request,
             String syncRequestTypeCode,
-            Optional<BricklinkMarketplaceListing> bricklinkListing
+            BricklinkMarketplaceListing bricklinkListing
     ) {
         boolean production = properties.isProduction();
         return MarketplaceListingSyncRequest.builder()
@@ -341,10 +344,9 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
                 .syncReasonCode(syncReasonCode(request.getSyncReasonCode()))
                 .requestedUnitPrice(money(listing.getUnitPrice()))
                 .currencyCode(listing.getCurrencyCode())
-                .remoteInventoryId(bricklinkListing
-                        .map(BricklinkMarketplaceListing::getBricklinkInventoryId)
-                        .map(String::valueOf)
-                        .orElse(null))
+                .remoteInventoryId(bricklinkListing == null || bricklinkListing.getBricklinkInventoryId() == null
+                        ? null
+                        : String.valueOf(bricklinkListing.getBricklinkInventoryId()))
                 .remoteVisibilityScopeCode(production ? REMOTE_SCOPE_PUBLIC : REMOTE_SCOPE_STOCKROOM)
                 .remoteVisibilityContainerId(production ? null : properties.getNonProdBricklinkStockroomId())
                 .remoteIsPubliclyAvailable(production)
@@ -381,11 +383,11 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
 
     private MarketplaceListingDraftResponse toResponse(
             MarketplaceListing listing,
-            Optional<BricklinkMarketplaceListing> bricklinkMarketplaceListing
+            BricklinkMarketplaceListing bricklinkMarketplaceListing
     ) {
         return MarketplaceListingDraftResponse.builder()
                 .marketplaceListing(listing)
-                .bricklinkMarketplaceListing(bricklinkMarketplaceListing.orElse(null))
+                .bricklinkMarketplaceListing(bricklinkMarketplaceListing)
                 .readiness(evaluateReadiness(listing.getItemInventoryId(), serviceCode(listing)))
                 .build();
     }
