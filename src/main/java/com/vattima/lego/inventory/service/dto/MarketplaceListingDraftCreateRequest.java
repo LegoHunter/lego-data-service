@@ -32,7 +32,6 @@ public class MarketplaceListingDraftCreateRequest {
     private String description;
     private String privateNotes;
 
-    @NotNull
     @DecimalMin(value = "0.01")
     private BigDecimal unitPrice;
 
