@@ -81,3 +81,11 @@ Phase 3/4 marketplace rules:
 - The intended BrickLink stockroom mapping is `sandbox=C`, `dev=B`, and `prod=A`.
 - The default unprofiled/local stockroom is `C` unless overridden with `MARKETPLACE_LISTING_DRAFTS_NON_PROD_BRICKLINK_STOCKROOM_ID`.
 - Missing `item_inventory_photos` for a `SELLABLE` inventory row is reported as a readiness warning, not a blocker.
+
+BrickLink color semantics:
+
+- SET catalog items use `colorId=0` (`Not Applicable`). A missing SET color is normalized to `0`; a nonzero SET
+  color is rejected.
+- Color-specific BrickLink item types require a positive `colorId` before a draft can become sync-ready.
+- The service applies this policy on both draft create/update and readiness evaluation, using the shared
+  `lego-data` `BricklinkInventoryColorPolicy`.

@@ -107,6 +107,28 @@ class MarketplaceListingDraftBusinessValidatorTest {
     }
 
     @Test
+    void hardBlockersDetectsMissingColorForColorSpecificBricklinkItem() {
+        ItemInventoryExternalCatalogItem partLink = primaryBricklinkCatalogLink(303);
+        partLink.getExternalCatalogItem().setItemTypeCode("PART");
+
+        List<MarketplaceListingReadinessIssue> blockers = validator.hardBlockers(
+                inventory("SELLABLE", "AVAILABLE", true),
+                "BRICKLINK",
+                Set.of(partLink),
+                listing(101, new BigDecimal("12.00"), "DRAFT"),
+                BricklinkMarketplaceListing.builder()
+                        .marketplaceListingId(101)
+                        .isStockRoom(true)
+                        .stockRoomId("A")
+                        .build(),
+                properties
+        );
+
+        assertThat(blockers).singleElement()
+                .satisfies(blocker -> assertThat(blocker.getCode()).isEqualTo("MISSING_BRICKLINK_COLOR_ID"));
+    }
+
+    @Test
     void hardBlockersDetectsNonProdStockroomViolations() {
         List<MarketplaceListingReadinessIssue> blockers = validator.hardBlockers(
                 inventory("SELLABLE", "AVAILABLE", true),
@@ -234,6 +256,7 @@ class MarketplaceListingDraftBusinessValidatorTest {
                         .externalCatalogItemId(externalCatalogItemId)
                         .externalServiceId(2)
                         .externalItemKey("6390-1")
+                        .itemTypeCode("S")
                         .build())
                 .build();
     }

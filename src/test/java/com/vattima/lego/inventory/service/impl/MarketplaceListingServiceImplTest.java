@@ -117,6 +117,7 @@ class MarketplaceListingServiceImplTest {
         assertThat(bricklinkCaptor.getValue().getStockRoomId()).isEqualTo("A");
         assertThat(bricklinkCaptor.getValue().getEnvironmentCode()).isEqualTo("sandbox");
         assertThat(bricklinkCaptor.getValue().getLastRemoteSafetyStatusCode()).isEqualTo("NOT_VERIFIED");
+        assertThat(bricklinkCaptor.getValue().getColorId()).isZero();
     }
 
     @Test
@@ -159,6 +160,27 @@ class MarketplaceListingServiceImplTest {
                 .build()))
                 .isInstanceOf(ValidationException.class)
                 .hasMessage("Inventory item already has an open marketplace listing for BRICKLINK");
+    }
+
+    @Test
+    void createDraftRejectsNonzeroSetColor() {
+        ItemInventory inventory = inventory("SELLABLE", "AVAILABLE", true);
+        MarketplaceListing persistedListing = listing(101, inventory.getItemInventoryId(), new BigDecimal("125.00"), "DRAFT");
+        when(itemInventoryDao.findByItemInventoryId(202)).thenReturn(Optional.of(inventory));
+        when(externalServiceDao.findByServiceCode("BRICKLINK")).thenReturn(Optional.of(bricklinkService()));
+        when(itemInventoryExternalCatalogItemDao.findByItemInventoryId(202))
+                .thenReturn(Set.of(primaryBricklinkCatalogLink()));
+        when(marketplaceListingDao.findByItemInventoryId(202)).thenReturn(Set.of());
+        when(marketplaceListingDao.insert(any(MarketplaceListing.class))).thenReturn(persistedListing);
+
+        assertThatThrownBy(() -> service.createDraft(MarketplaceListingDraftCreateRequest.builder()
+                .itemInventoryId(202)
+                .marketplaceCode("BRICKLINK")
+                .unitPrice(new BigDecimal("125.00"))
+                .bricklink(BricklinkListingDraftRequest.builder().colorId(1).build())
+                .build()))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("BrickLink SET inventory must use colorId 0 (Not Applicable)");
     }
 
     @Test
@@ -751,6 +773,7 @@ class MarketplaceListingServiceImplTest {
                         .externalCatalogItemId(303)
                         .externalServiceId(2)
                         .externalItemKey("6390-1")
+                        .itemTypeCode("S")
                         .build())
                 .build();
     }
