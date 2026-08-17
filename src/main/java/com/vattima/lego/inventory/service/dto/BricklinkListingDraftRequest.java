@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BricklinkListingDraftRequest {
-    @Min(value = 1)
+    @Min(value = 0)
     private Integer colorId;
 
     private String colorName;

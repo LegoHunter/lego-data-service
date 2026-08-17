@@ -14,6 +14,7 @@ import com.vattima.lego.inventory.service.dto.MarketplaceListingSyncRequestPrevi
 import com.vattima.lego.inventory.service.exception.NotFoundException;
 import com.vattima.lego.inventory.service.exception.ValidationException;
 import com.vattima.lego.inventory.service.validation.MarketplaceListingDraftBusinessValidator;
+import io.legohunter.data.bricklink.BricklinkInventoryColorPolicy;
 import io.legohunter.data.dao.BricklinkMarketplaceListingDao;
 import io.legohunter.data.dao.ExternalServiceDao;
 import io.legohunter.data.dao.ItemInventoryDao;
@@ -106,7 +107,11 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
                 .build();
         MarketplaceListing persistedListing = marketplaceListingDao.insert(listing);
         BricklinkMarketplaceListing persistedBricklink = bricklinkMarketplaceListingDao.insert(
-                toBricklinkMarketplaceListing(persistedListing.getMarketplaceListingId(), request.getBricklink())
+                toBricklinkMarketplaceListing(
+                        persistedListing.getMarketplaceListingId(),
+                        request.getBricklink(),
+                        catalogLink.getExternalCatalogItem().getItemTypeCode()
+                )
         );
         return toResponse(persistedListing, persistedBricklink);
     }
@@ -172,7 +177,9 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
                 existingBricklink.orElseGet(() -> BricklinkMarketplaceListing.builder()
                         .marketplaceListingId(marketplaceListingId)
                         .build()),
-                request.getBricklink()
+                request.getBricklink(),
+                requireCatalogLink(catalogLinks, listing.getExternalCatalogItemId())
+                        .getExternalCatalogItem().getItemTypeCode()
         );
         BricklinkMarketplaceListing persistedBricklink = existingBricklink.isPresent()
                 ? bricklinkMarketplaceListingDao.update(bricklink)
@@ -392,21 +399,29 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
                 .build();
     }
 
-    private BricklinkMarketplaceListing toBricklinkMarketplaceListing(Integer marketplaceListingId, BricklinkListingDraftRequest request) {
+    private BricklinkMarketplaceListing toBricklinkMarketplaceListing(
+            Integer marketplaceListingId,
+            BricklinkListingDraftRequest request,
+            String itemTypeCode
+    ) {
         return applyBricklinkUpdate(
                 BricklinkMarketplaceListing.builder()
                         .marketplaceListingId(marketplaceListingId)
                         .build(),
-                request
+                request,
+                itemTypeCode
         );
     }
 
     private BricklinkMarketplaceListing applyBricklinkUpdate(
             BricklinkMarketplaceListing listing,
-            BricklinkListingDraftRequest request
+            BricklinkListingDraftRequest request,
+            String itemTypeCode
     ) {
         if (request != null) {
-            listing.setColorId(request.getColorId());
+            if (request.getColorId() != null) {
+                listing.setColorId(request.getColorId());
+            }
             listing.setColorName(request.getColorName());
             listing.setBulk(request.getBulk());
             listing.setIsRetain(request.getIsRetain());
@@ -422,6 +437,14 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
             listing.setMyWeight(request.getMyWeight());
             listing.setRemarks(request.getRemarks());
         }
+        BricklinkInventoryColorPolicy.Resolution color = BricklinkInventoryColorPolicy.resolve(
+                itemTypeCode,
+                listing.getColorId()
+        );
+        if (!color.valid()) {
+            throw new ValidationException(color.message());
+        }
+        listing.setColorId(color.effectiveColorId());
         if (!properties.isProduction()) {
             // Lower environments share the real BrickLink account; drafts must stay stockroom-only
             // until a future sync layer revalidates them.
@@ -432,6 +455,17 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
             listing.setLastRemoteSafetyMessage("Local draft only; remote BrickLink inventory has not been created or verified");
         }
         return listing;
+    }
+
+    private ItemInventoryExternalCatalogItem requireCatalogLink(
+            Set<ItemInventoryExternalCatalogItem> catalogLinks,
+            Integer externalCatalogItemId
+    ) {
+        return catalogLinks.stream()
+                .filter(link -> externalCatalogItemId.equals(link.getExternalCatalogItemId()))
+                .filter(link -> link.getExternalCatalogItem() != null)
+                .findFirst()
+                .orElseThrow(() -> new ValidationException("Marketplace listing must have its selected BrickLink catalog link"));
     }
 
     private ItemInventory requireInventory(Integer itemInventoryId) {

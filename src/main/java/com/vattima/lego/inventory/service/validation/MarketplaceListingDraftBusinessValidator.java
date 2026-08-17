@@ -2,6 +2,7 @@ package com.vattima.lego.inventory.service.validation;
 
 import com.vattima.lego.inventory.service.config.MarketplaceListingDraftProperties;
 import com.vattima.lego.inventory.service.dto.MarketplaceListingReadinessIssue;
+import io.legohunter.data.bricklink.BricklinkInventoryColorPolicy;
 import io.legohunter.data.dto.BricklinkMarketplaceListing;
 import io.legohunter.data.dto.ItemInventory;
 import io.legohunter.data.dto.ItemInventoryExternalCatalogItem;
@@ -71,6 +72,17 @@ public class MarketplaceListingDraftBusinessValidator {
             if (!properties.isProduction()) {
                 addNonProdBricklinkBlockers(blockers, bricklinkMarketplaceListing, properties);
             }
+            findBricklinkCatalogLink(catalogLinks, listing.getExternalCatalogItemId())
+                    .map(ItemInventoryExternalCatalogItem::getExternalCatalogItem)
+                    .ifPresent(catalogItem -> {
+                        BricklinkInventoryColorPolicy.Resolution color = BricklinkInventoryColorPolicy.resolve(
+                                catalogItem.getItemTypeCode(),
+                                bricklinkMarketplaceListing == null ? null : bricklinkMarketplaceListing.getColorId()
+                        );
+                        if (!color.valid()) {
+                            blockers.add(blocker(color.errorCode(), color.message()));
+                        }
+                    });
         }, () -> blockers.add(blocker("MISSING_MARKETPLACE_LISTING_DRAFT",
                 "Inventory item must have a marketplace listing draft before marketplace sync")));
         return blockers;
