@@ -9,7 +9,6 @@ import org.springframework.util.StopWatch;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Aspect
 @Component
@@ -27,7 +26,9 @@ public class LoggingAspect {
         Object[] args = joinPoint.getArgs();
         String methodName = joinPoint.getSignature().getName();
         String className = joinPoint.getTarget().getClass().getSimpleName();
-        String parameters = (String) ((Stream) Arrays.stream(args).sequential()).map(Object::toString).collect(Collectors.joining());
+        String parameters = Arrays.stream(args)
+                .map(String::valueOf)
+                .collect(Collectors.joining());
         log.info("Method: {}.{} with parameters: {} took [{}]ms", className, methodName, parameters, stopWatch.getTotalTimeMillis());
 
         return returnValue;
