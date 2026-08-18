@@ -141,7 +141,7 @@ class MarketplaceListingServiceImplTest {
         assertThat(response.getMarketplaceListing().getUnitPrice()).isNull();
         assertThat(response.getReadiness().isReadyForMarketplaceSync()).isFalse();
         assertThat(response.getReadiness().getBlockers()).extracting("code")
-                .contains("MISSING_UNIT_PRICE");
+                .contains("INITIAL_PRICE_PENDING");
     }
 
     @Test
@@ -546,7 +546,7 @@ class MarketplaceListingServiceImplTest {
         assertThat(response.isReadyForSyncRequest()).isFalse();
         assertThat(response.getSyncRequestCandidate().getSyncRequestTypeCode()).isEqualTo("LISTING_CREATE");
         assertThat(response.getSyncRequestCandidate().getRequestedUnitPrice()).isNull();
-        assertThat(response.getBlockers()).extracting("code").contains("MISSING_UNIT_PRICE");
+        assertThat(response.getBlockers()).extracting("code").contains("INITIAL_PRICE_PENDING");
         verify(marketplaceListingSyncRequestDao, never()).insert(any());
     }
 

@@ -88,12 +88,31 @@ class MarketplaceListingDraftBusinessValidatorTest {
     }
 
     @Test
-    void hardBlockersDetectsMissingUnitPrice() {
+    void hardBlockersReportsInitialPricingPendingForUnpricedNonFixedDraft() {
         List<MarketplaceListingReadinessIssue> blockers = validator.hardBlockers(
                 inventory("SELLABLE", "AVAILABLE", true),
                 "BRICKLINK",
                 Set.of(primaryBricklinkCatalogLink(303)),
                 listing(101, null, "DRAFT"),
+                BricklinkMarketplaceListing.builder()
+                        .marketplaceListingId(101)
+                        .isStockRoom(true)
+                        .stockRoomId("A")
+                        .build(),
+                properties
+        );
+
+        assertThat(blockers).singleElement()
+                .satisfies(blocker -> assertThat(blocker.getCode()).isEqualTo("INITIAL_PRICE_PENDING"));
+    }
+
+    @Test
+    void hardBlockersStillReportsMissingUnitPriceForAnActiveListing() {
+        List<MarketplaceListingReadinessIssue> blockers = validator.hardBlockers(
+                inventory("SELLABLE", "AVAILABLE", true),
+                "BRICKLINK",
+                Set.of(primaryBricklinkCatalogLink(303)),
+                listing(101, null, "ACTIVE"),
                 BricklinkMarketplaceListing.builder()
                         .marketplaceListingId(101)
                         .isStockRoom(true)
