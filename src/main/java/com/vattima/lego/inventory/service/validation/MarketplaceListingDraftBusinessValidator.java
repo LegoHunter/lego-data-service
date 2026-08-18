@@ -69,8 +69,8 @@ public class MarketplaceListingDraftBusinessValidator {
                     blockers.add(blocker("INITIAL_PRICE_PENDING",
                             "Pricing Plane must apply a positive initial unitPrice before marketplace sync"));
                 } else {
-                    blockers.add(blocker("MISSING_UNIT_PRICE",
-                            "Marketplace listing must have a unitPrice before marketplace sync"));
+                    blockers.add(blocker("MISSING_FIXED_UNIT_PRICE",
+                            "Marketplace listing requires a fixed price and therefore must have a non-zero unitPrice before marketplace sync"));
                 }
             } else if (listing.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0) {
                 blockers.add(blocker("INVALID_UNIT_PRICE",
