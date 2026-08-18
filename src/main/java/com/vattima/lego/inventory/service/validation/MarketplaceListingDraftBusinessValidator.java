@@ -22,6 +22,7 @@ import static io.legohunter.data.dto.ExternalService.Service.BRICKLINK;
 public class MarketplaceListingDraftBusinessValidator {
     public static final String LISTING_STATUS_REMOVED = "REMOVED";
     public static final String LISTING_STATUS_ENDED = "ENDED";
+    public static final String LISTING_STATUS_DRAFT = "DRAFT";
     public static final String SALE_INTENT_SELLABLE = "SELLABLE";
     public static final String INVENTORY_STATE_AVAILABLE = "AVAILABLE";
     public static final String SEVERITY_BLOCKER = "BLOCKER";
@@ -63,8 +64,14 @@ public class MarketplaceListingDraftBusinessValidator {
         }
         Optional.ofNullable(marketplaceListing).ifPresentOrElse(listing -> {
             if (listing.getUnitPrice() == null) {
-                blockers.add(blocker("MISSING_UNIT_PRICE",
-                        "Marketplace listing must have a unitPrice before marketplace sync"));
+                if (LISTING_STATUS_DRAFT.equals(normalizeMarketplaceCode(listing.getListingStatusCode()))
+                        && !Boolean.TRUE.equals(listing.getFixedPrice())) {
+                    blockers.add(blocker("INITIAL_PRICE_PENDING",
+                            "Pricing Plane must apply a positive initial unitPrice before marketplace sync"));
+                } else {
+                    blockers.add(blocker("MISSING_FIXED_UNIT_PRICE",
+                            "Marketplace listing requires a fixed price and therefore must have a non-zero unitPrice before marketplace sync"));
+                }
             } else if (listing.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0) {
                 blockers.add(blocker("INVALID_UNIT_PRICE",
                         "Marketplace listing must have a positive unitPrice before marketplace sync"));

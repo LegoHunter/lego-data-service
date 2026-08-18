@@ -73,7 +73,7 @@ Phase 3/4 marketplace rules:
 - Phase 4 supports BrickLink local drafts and local `LISTING_CREATE` sync request rows only.
 - Phase 4 does not call BrickLink or eBay APIs.
 - Draft creation requires active inventory, `saleIntentCode=SELLABLE`, `inventoryStateCode=AVAILABLE`, and a BrickLink catalog link.
-- Draft creation may omit `unitPrice`; unpriced drafts are eligible for Pricing Plane onboarding but blocked from sync readiness with `MISSING_UNIT_PRICE`.
+- Draft creation may omit `unitPrice`; an unpriced non-fixed `DRAFT` is eligible for Pricing Plane onboarding and reports `INITIAL_PRICE_PENDING` until Pricing Plane applies a positive initial price. Unpriced active or fixed listings report `MISSING_FIXED_UNIT_PRICE` and require a positive operator-supplied price before marketplace sync.
 - A request may set `updateSaleIntentToSellable=true` to flip an existing inventory row to `SELLABLE` while creating the local draft.
 - An inventory row may have only one open local draft per marketplace.
 - `LISTING_CREATE` sync request creation requires a ready local draft, positive `unitPrice`, no existing remote BrickLink inventory id, and no active duplicate `PENDING` or `CLAIMED` `LISTING_CREATE` request.

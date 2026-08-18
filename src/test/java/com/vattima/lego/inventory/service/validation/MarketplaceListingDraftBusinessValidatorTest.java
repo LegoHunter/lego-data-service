@@ -88,7 +88,7 @@ class MarketplaceListingDraftBusinessValidatorTest {
     }
 
     @Test
-    void hardBlockersDetectsMissingUnitPrice() {
+    void hardBlockersReportsInitialPricingPendingForUnpricedNonFixedDraft() {
         List<MarketplaceListingReadinessIssue> blockers = validator.hardBlockers(
                 inventory("SELLABLE", "AVAILABLE", true),
                 "BRICKLINK",
@@ -103,7 +103,32 @@ class MarketplaceListingDraftBusinessValidatorTest {
         );
 
         assertThat(blockers).singleElement()
-                .satisfies(blocker -> assertThat(blocker.getCode()).isEqualTo("MISSING_UNIT_PRICE"));
+                .satisfies(blocker -> assertThat(blocker.getCode()).isEqualTo("INITIAL_PRICE_PENDING"));
+    }
+
+    @Test
+    void hardBlockersReportsMissingFixedUnitPriceForAnActiveListing() {
+        MarketplaceListing activeListing = listing(101, null, "ACTIVE");
+        activeListing.setFixedPrice(true);
+
+        List<MarketplaceListingReadinessIssue> blockers = validator.hardBlockers(
+                inventory("SELLABLE", "AVAILABLE", true),
+                "BRICKLINK",
+                Set.of(primaryBricklinkCatalogLink(303)),
+                activeListing,
+                BricklinkMarketplaceListing.builder()
+                        .marketplaceListingId(101)
+                        .isStockRoom(true)
+                        .stockRoomId("A")
+                        .build(),
+                properties
+        );
+
+        assertThat(blockers).singleElement()
+                .satisfies(blocker -> {
+                    assertThat(blocker.getCode()).isEqualTo("MISSING_FIXED_UNIT_PRICE");
+                    assertThat(blocker.getMessage()).isEqualTo("Marketplace listing requires a fixed price and therefore must have a non-zero unitPrice before marketplace sync");
+                });
     }
 
     @Test
