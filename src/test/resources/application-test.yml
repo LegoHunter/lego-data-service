@@ -2,7 +2,7 @@ lego:
   databases:
     test:
       driverClassName: com.mysql.cj.jdbc.Driver
-      url: jdbc:mysql://legolandserver1:3306/lego_sandbox
+      url: jdbc:mysql://rasppi5-01:3306/lego_sandbox
       username: user
       password: pwd
 
