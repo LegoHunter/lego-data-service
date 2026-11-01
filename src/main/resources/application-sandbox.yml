@@ -15,6 +15,11 @@ spring:
       validation-timeout: 10000
       pool-name: rasppi5-01-mysql-jdbc-pool
 
+otel:
+  resource:
+    attributes:
+      deployment.environment: sandbox
+
 lego:
   marketplace-listing-drafts:
     production: false

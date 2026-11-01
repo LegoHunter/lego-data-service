@@ -7,7 +7,7 @@ spring:
 management:
   otlp:
     tracing:
-      endpoint: http://otel-collector-opentelemetry-collector.observability.svc.cluster.local:4318/v1/tracees
+      endpoint: http://otel-collector-opentelemetry-collector.observability.svc.cluster.local:4318/v1/traces
     metrics:
       export:
         url:  http://otel-collector-opentelemetry-collector.observability.svc.cluster.local:4318/v1/metrics
@@ -31,6 +31,6 @@ otel:
   resource:
     attributes:
       service.version: 1.0.0
-      deployment.environment: sandbox
+      # deployment.environment is set by each application-<env>.yml (HOMELAB-26 B9).
   traces:
     exporter: otlp
