@@ -9,4 +9,4 @@ spec:
         - name: lego-data-service
           env:
             - name: SPRING_PROFILES_ACTIVE
-              value: sandbox,kubernetes
+              value: dev,kubernetes
