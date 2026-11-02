@@ -16,7 +16,7 @@
     <packaging>jar</packaging>
 
     <properties>
-        <java.version>22</java.version>
+        <java.version>21</java.version>
         <lego-data.version>1.1.0-SNAPSHOT</lego-data.version>
         <aws.java.sdk.version>2.28.18</aws.java.sdk.version>
         <mybatis-spring-boot-starter.version>3.0.3</mybatis-spring-boot-starter.version>
