@@ -79,7 +79,7 @@ Phase 3/4 marketplace rules:
 - `LISTING_CREATE` sync request creation requires a ready local draft, positive `unitPrice`, no existing remote BrickLink inventory id, and no active duplicate `PENDING` or `CLAIMED` `LISTING_CREATE` request.
 - In non-production environments, BrickLink draft details are forced to stockroom-only using `lego.marketplace-listing-drafts.non-prod-bricklink-stockroom-id`.
 - The BrickLink stockroom mapping is `sandbox=C`, `dev=B`. Stockroom `A` is reserved for PROD's own deliberately hidden lots; PROD drafts are not forced into a stockroom (HOMELAB-20).
-- There is no code default. The service refuses to start if a lower environment has no stockroom, has `A`, or has another environment's stockroom (`MarketplaceListingDraftStockroomValidator`).
+- There is no code default. At startup `MarketplaceListingDraftStockroomValidator` runs the shared rules from lego-data (`BricklinkStockroomPolicy`, `LegoEnvironment`). The service refuses to start if the environment code is unknown or disagrees with `production`, or if a lower environment has no stockroom, has `A`, or has another environment's stockroom.
 - The default unprofiled/local stockroom is `C` unless overridden with `MARKETPLACE_LISTING_DRAFTS_NON_PROD_BRICKLINK_STOCKROOM_ID`.
 - Missing `item_inventory_photos` for a `SELLABLE` inventory row is reported as a readiness warning, not a blocker.
 

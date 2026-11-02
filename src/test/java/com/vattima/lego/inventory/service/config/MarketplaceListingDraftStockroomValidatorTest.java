@@ -3,59 +3,55 @@ package com.vattima.lego.inventory.service.config;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.NullAndEmptySource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * The rules themselves are tested in lego-data ({@code BricklinkStockroomPolicyTest}); here they
+ * are checked to be wired in, with this service's setting names in the messages.
+ */
 class MarketplaceListingDraftStockroomValidatorTest {
 
     @ParameterizedTest
-    @CsvSource({"sandbox, C", "local, C", "dev, B", "' Sandbox ', ' c '"})
+    @CsvSource({"sandbox, C", "local, C", "dev, B"})
     void startsWithEachLowerEnvironmentInItsOwnStockroom(String environment, String stockroom) {
         assertThatCode(() -> validator(lowerEnvironment(environment, stockroom)).afterPropertiesSet())
                 .doesNotThrowAnyException();
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"sandbox", "dev", "local", "some-new-env"})
-    void refusesToStartWithStockroomAOutsideProd(String environment) {
-        assertThatThrownBy(() -> validator(lowerEnvironment(environment, "A")).afterPropertiesSet())
+    @Test
+    void refusesToStartWithSandboxInStockroomA() {
+        assertThatThrownBy(() -> validator(lowerEnvironment("sandbox", "A")).afterPropertiesSet())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Unsafe marketplace listing draft configuration")
                 .hasMessageNotContaining("HOMELAB")
-                .hasMessageContaining("must not be A outside PROD");
-    }
-
-    @ParameterizedTest
-    @CsvSource({"sandbox, B", "local, B", "dev, C"})
-    void refusesAnotherEnvironmentsStockroom(String environment, String stockroom) {
-        assertThat(MarketplaceListingDraftStockroomValidator.violations(lowerEnvironment(environment, stockroom)))
-                .singleElement().asString().contains("for environment '" + environment + "' must be");
-    }
-
-    @ParameterizedTest
-    @NullAndEmptySource
-    @ValueSource(strings = {"  "})
-    void refusesAMissingStockroomOutsideProd(String stockroom) {
-        assertThat(MarketplaceListingDraftStockroomValidator.violations(lowerEnvironment("sandbox", stockroom)))
-                .singleElement().asString().contains("must be set outside PROD");
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"D", "AB", "1"})
-    void refusesValuesThatAreNotBricklinkStockrooms(String stockroom) {
-        assertThat(MarketplaceListingDraftStockroomValidator.violations(lowerEnvironment("sandbox", stockroom)))
-                .singleElement().asString().contains("is not a BrickLink stockroom");
+                .hasMessageContaining("lego.marketplace-listing-drafts.non-prod-bricklink-stockroom-id must not be A for environment 'sandbox'");
     }
 
     @Test
-    void anUnknownLowerEnvironmentMayUseBOrCButNeverA() {
-        assertThat(MarketplaceListingDraftStockroomValidator.violations(lowerEnvironment("test", "B"))).isEmpty();
-        assertThat(MarketplaceListingDraftStockroomValidator.violations(lowerEnvironment("test", "C"))).isEmpty();
-        assertThat(MarketplaceListingDraftStockroomValidator.violations(lowerEnvironment("test", "A"))).isNotEmpty();
+    void refusesToStartWithAnUnknownEnvironmentCode() {
+        assertThatThrownBy(() -> validator(lowerEnvironment("sandbx", "B")).afterPropertiesSet())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("lego.marketplace-listing-drafts.environment-code 'sandbx' is not a known environment");
+    }
+
+    @Test
+    void refusesToStartWithoutAStockroomOutsideProd() {
+        assertThat(MarketplaceListingDraftStockroomValidator.violations(lowerEnvironment("dev", null)))
+                .singleElement().asString()
+                .contains("lego.marketplace-listing-drafts.non-prod-bricklink-stockroom-id must be set for environment 'dev' (expected B)");
+    }
+
+    @Test
+    void refusesAProductionFlagThatDisagreesWithTheEnvironment() {
+        MarketplaceListingDraftProperties properties = lowerEnvironment("sandbox", "C");
+        properties.setProduction(true);
+
+        assertThat(MarketplaceListingDraftStockroomValidator.violations(properties))
+                .singleElement().asString()
+                .contains("lego.marketplace-listing-drafts.production is true but environment-code 'sandbox' is not PROD");
     }
 
     @Test
