@@ -7,11 +7,12 @@ namespace: services-prod
 labels:
   - pairs:
       app.kubernetes.io/instance: prod
+    # Also on the pod template: the base carries no environment (HOMELAB-26 E6).
+    includeTemplates: true
 
-# Base resources (the base is written for SANDBOX; the patches below retarget it to PROD)
+# Base resources (environment-neutral; the patches below set the PROD values)
 resources:
   - ../../base
-  - default-headers.yaml
 
 # Image tag injection
 images:
@@ -27,7 +28,7 @@ replicas:
 patches:
   - path: deployment-env-patch.yaml
   - path: deployment-resources-patch.yaml
-  # Pod instance label and the services-prod-external-secret mount
+  # services-prod-external-secret mount
   - path: deployment-prod-patch.yaml
     target:
       group: apps

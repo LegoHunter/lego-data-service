@@ -7,11 +7,12 @@ namespace: services-dev
 labels:
   - pairs:
       app.kubernetes.io/instance: dev
+    # Also on the pod template: the base carries no environment (HOMELAB-26 E6).
+    includeTemplates: true
 
-# Base resources (the base is written for SANDBOX; the patches below retarget it to DEV)
+# Base resources (environment-neutral; the patches below set the DEV values)
 resources:
   - ../../base
-  - default-headers.yaml
 
 # Image tag injection
 images:
@@ -27,7 +28,7 @@ replicas:
 patches:
   - path: deployment-env-patch.yaml
   - path: deployment-resources-patch.yaml
-  # Pod instance label and the services-dev-external-secret mount
+  # services-dev-external-secret mount
   - path: deployment-dev-patch.yaml
     target:
       group: apps
