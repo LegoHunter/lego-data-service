@@ -63,7 +63,7 @@ class MarketplaceListingServiceImplTest {
     void setUp() {
         properties = new MarketplaceListingDraftProperties();
         properties.setEnvironmentCode("sandbox");
-        properties.setNonProdBricklinkStockroomId("A");
+        properties.setNonProdBricklinkStockroomId("C");
         service = new MarketplaceListingServiceImpl(
                 bricklinkMarketplaceListingDao,
                 externalServiceDao,
@@ -84,7 +84,7 @@ class MarketplaceListingServiceImplTest {
         BricklinkMarketplaceListing persistedBricklink = BricklinkMarketplaceListing.builder()
                 .marketplaceListingId(101)
                 .isStockRoom(true)
-                .stockRoomId("A")
+                .stockRoomId("C")
                 .environmentCode("sandbox")
                 .build();
         stubCreateInputs(inventory, Set.of(), persistedListing, persistedBricklink);
@@ -114,7 +114,7 @@ class MarketplaceListingServiceImplTest {
         ArgumentCaptor<BricklinkMarketplaceListing> bricklinkCaptor = ArgumentCaptor.forClass(BricklinkMarketplaceListing.class);
         verify(bricklinkMarketplaceListingDao).insert(bricklinkCaptor.capture());
         assertThat(bricklinkCaptor.getValue().getIsStockRoom()).isTrue();
-        assertThat(bricklinkCaptor.getValue().getStockRoomId()).isEqualTo("A");
+        assertThat(bricklinkCaptor.getValue().getStockRoomId()).isEqualTo("C");
         assertThat(bricklinkCaptor.getValue().getEnvironmentCode()).isEqualTo("sandbox");
         assertThat(bricklinkCaptor.getValue().getLastRemoteSafetyStatusCode()).isEqualTo("NOT_VERIFIED");
         assertThat(bricklinkCaptor.getValue().getColorId()).isZero();
@@ -127,7 +127,7 @@ class MarketplaceListingServiceImplTest {
         BricklinkMarketplaceListing persistedBricklink = BricklinkMarketplaceListing.builder()
                 .marketplaceListingId(101)
                 .isStockRoom(true)
-                .stockRoomId("A")
+                .stockRoomId("C")
                 .environmentCode("sandbox")
                 .build();
         stubCreateInputs(inventory, Set.of(), persistedListing, persistedBricklink);
@@ -336,7 +336,7 @@ class MarketplaceListingServiceImplTest {
                 .thenReturn(Optional.of(BricklinkMarketplaceListing.builder()
                         .marketplaceListingId(101)
                         .isStockRoom(true)
-                        .stockRoomId("A")
+                        .stockRoomId("C")
                         .build()));
         when(itemInventoryPhotoDao.findByItemInventoryId(202)).thenReturn(Set.of(ItemInventoryPhoto.builder()
                 .itemInventoryId(202)
@@ -357,7 +357,7 @@ class MarketplaceListingServiceImplTest {
         BricklinkMarketplaceListing bricklink = BricklinkMarketplaceListing.builder()
                 .marketplaceListingId(101)
                 .isStockRoom(true)
-                .stockRoomId("A")
+                .stockRoomId("C")
                 .build();
         when(marketplaceListingDao.findByMarketplaceListingId(101)).thenReturn(Optional.of(listing));
         when(bricklinkMarketplaceListingDao.findByMarketplaceListingId(101)).thenReturn(Optional.of(bricklink), Optional.of(bricklink));
@@ -409,7 +409,7 @@ class MarketplaceListingServiceImplTest {
         BricklinkMarketplaceListing bricklink = BricklinkMarketplaceListing.builder()
                 .marketplaceListingId(101)
                 .isStockRoom(true)
-                .stockRoomId("A")
+                .stockRoomId("C")
                 .build();
         when(itemInventoryDao.findByItemInventoryId(202)).thenReturn(Optional.of(inventory));
         when(marketplaceListingDao.findByItemInventoryId(202)).thenReturn(Set.of(listing), Set.of(listing));
@@ -432,7 +432,7 @@ class MarketplaceListingServiceImplTest {
         BricklinkMarketplaceListing updatedBricklink = BricklinkMarketplaceListing.builder()
                 .marketplaceListingId(101)
                 .isStockRoom(true)
-                .stockRoomId("A")
+                .stockRoomId("C")
                 .environmentCode("sandbox")
                 .build();
         when(marketplaceListingDao.findByMarketplaceListingId(101)).thenReturn(Optional.of(existing));
@@ -466,7 +466,7 @@ class MarketplaceListingServiceImplTest {
         BricklinkMarketplaceListing insertedBricklink = BricklinkMarketplaceListing.builder()
                 .marketplaceListingId(101)
                 .isStockRoom(true)
-                .stockRoomId("A")
+                .stockRoomId("C")
                 .environmentCode("sandbox")
                 .build();
         when(marketplaceListingDao.findByMarketplaceListingId(101)).thenReturn(Optional.of(existing));
@@ -577,7 +577,7 @@ class MarketplaceListingServiceImplTest {
         assertThat(captor.getValue().getSyncReasonCode()).isEqualTo("MANUAL_APPROVAL");
         assertThat(captor.getValue().getRequestedUnitPrice()).isEqualByComparingTo("42.13");
         assertThat(captor.getValue().getRemoteVisibilityScopeCode()).isEqualTo("STOCKROOM");
-        assertThat(captor.getValue().getRemoteVisibilityContainerId()).isEqualTo("A");
+        assertThat(captor.getValue().getRemoteVisibilityContainerId()).isEqualTo("C");
         assertThat(captor.getValue().getRemoteIsPubliclyAvailable()).isFalse();
         assertThat(captor.getValue().getMaxAttempts()).isEqualTo(5);
     }
@@ -741,7 +741,7 @@ class MarketplaceListingServiceImplTest {
                 .marketplaceListingId(101)
                 .bricklinkInventoryId(bricklinkInventoryId)
                 .isStockRoom(true)
-                .stockRoomId("A")
+                .stockRoomId("C")
                 .build();
     }
 

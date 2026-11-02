@@ -1,0 +1,77 @@
+package com.vattima.lego.inventory.service.config;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.bind.PropertySourcesPlaceholdersResolver;
+import org.springframework.boot.context.properties.source.ConfigurationPropertySources;
+import org.springframework.core.env.MutablePropertySources;
+import org.springframework.core.env.PropertiesPropertySource;
+import org.springframework.core.io.ClassPathResource;
+
+import java.util.Properties;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+
+/**
+ * Every real Spring profile combination binds to a draft stockroom that the startup check accepts,
+ * with each lower environment in its own stockroom (HOMELAB-20). A pod runs
+ * {@code <env>,kubernetes}; a run with no profile uses {@code application.yml} alone, whose
+ * placeholders default to the {@code local} environment. Placeholders are resolved as Spring does,
+ * with no environment variables set.
+ */
+class StockroomProfileTest {
+
+    @ParameterizedTest(name = "{1}")
+    @CsvSource({
+            "'sandbox,kubernetes', sandbox, C",
+            "'dev,kubernetes',     dev,     B",
+            "'',                   local,   C",
+    })
+    void eachLowerEnvironmentStampsDraftsWithItsOwnStockroom(String profiles, String environment, String stockroom) {
+        MarketplaceListingDraftProperties drafts = drafts(profiles);
+
+        assertThat(drafts.isProduction()).isFalse();
+        assertThat(drafts.getEnvironmentCode()).isEqualTo(environment);
+        assertThat(drafts.getNonProdBricklinkStockroomId()).isEqualTo(stockroom);
+        assertThat(MarketplaceListingDraftStockroomValidator.violations(drafts)).isEmpty();
+    }
+
+    @Test
+    void prodIsProductionAndNotForcedIntoAStockroom() {
+        MarketplaceListingDraftProperties drafts = drafts("prod,kubernetes");
+
+        assertThat(drafts.isProduction()).isTrue();
+        assertThat(drafts.getEnvironmentCode()).isEqualTo("prod");
+        assertThatCode(() -> new MarketplaceListingDraftStockroomValidator(drafts).afterPropertiesSet())
+                .doesNotThrowAnyException();
+    }
+
+    private static MarketplaceListingDraftProperties drafts(String profiles) {
+        Properties effective = new Properties();
+        effective.putAll(load("application.yml"));
+        for (String profile : profiles.split(",")) {
+            if (!profile.isBlank()) {
+                effective.putAll(load("application-%s.yml".formatted(profile.trim())));
+            }
+        }
+        MutablePropertySources sources = new MutablePropertySources();
+        sources.addFirst(new PropertiesPropertySource("profiles", effective));
+        return new Binder(ConfigurationPropertySources.from(sources), new PropertySourcesPlaceholdersResolver(sources))
+                .bind("lego.marketplace-listing-drafts", Bindable.ofInstance(new MarketplaceListingDraftProperties()))
+                .get();
+    }
+
+    private static Properties load(String resourceName) {
+        ClassPathResource resource = new ClassPathResource(resourceName);
+        assertThat(resource.exists()).as(resourceName).isTrue();
+        YamlPropertiesFactoryBean factory = new YamlPropertiesFactoryBean();
+        factory.setResources(resource);
+        factory.afterPropertiesSet();
+        return factory.getObject();
+    }
+}
