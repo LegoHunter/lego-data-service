@@ -51,7 +51,7 @@ public class MarketplaceListingDraftStockroomValidator implements InitializingBe
     public void afterPropertiesSet() {
         List<String> violations = violations(properties);
         if (!violations.isEmpty()) {
-            throw new IllegalStateException("Unsafe marketplace listing draft configuration (HOMELAB-20):\n - "
+            throw new IllegalStateException("Unsafe marketplace listing draft configuration:\n - "
                     + String.join("\n - ", violations));
         }
     }

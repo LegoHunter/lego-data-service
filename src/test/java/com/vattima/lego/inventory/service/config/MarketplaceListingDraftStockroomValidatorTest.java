@@ -24,7 +24,8 @@ class MarketplaceListingDraftStockroomValidatorTest {
     void refusesToStartWithStockroomAOutsideProd(String environment) {
         assertThatThrownBy(() -> validator(lowerEnvironment(environment, "A")).afterPropertiesSet())
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("HOMELAB-20")
+                .hasMessageContaining("Unsafe marketplace listing draft configuration")
+                .hasMessageNotContaining("HOMELAB")
                 .hasMessageContaining("must not be A outside PROD");
     }
 
