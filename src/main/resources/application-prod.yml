@@ -24,4 +24,5 @@ lego:
   marketplace-listing-drafts:
     production: true
     environment-code: prod
-    non-prod-bricklink-stockroom-id: A
+    # No non-prod-bricklink-stockroom-id here: PROD drafts are not forced into a stockroom, and
+    # stockroom A is PROD's own, for deliberately hiding a lot (HOMELAB-20).

@@ -27,7 +27,7 @@ class MarketplaceListingDraftBusinessValidatorTest {
         validator = new MarketplaceListingDraftBusinessValidator();
         properties = new MarketplaceListingDraftProperties();
         properties.setEnvironmentCode("sandbox");
-        properties.setNonProdBricklinkStockroomId("A");
+        properties.setNonProdBricklinkStockroomId("C");
     }
 
     @Test
@@ -97,7 +97,7 @@ class MarketplaceListingDraftBusinessValidatorTest {
                 BricklinkMarketplaceListing.builder()
                         .marketplaceListingId(101)
                         .isStockRoom(true)
-                        .stockRoomId("A")
+                        .stockRoomId("C")
                         .build(),
                 properties
         );
@@ -119,7 +119,7 @@ class MarketplaceListingDraftBusinessValidatorTest {
                 BricklinkMarketplaceListing.builder()
                         .marketplaceListingId(101)
                         .isStockRoom(true)
-                        .stockRoomId("A")
+                        .stockRoomId("C")
                         .build(),
                 properties
         );
@@ -144,7 +144,7 @@ class MarketplaceListingDraftBusinessValidatorTest {
                 BricklinkMarketplaceListing.builder()
                         .marketplaceListingId(101)
                         .isStockRoom(true)
-                        .stockRoomId("A")
+                        .stockRoomId("C")
                         .build(),
                 properties
         );
