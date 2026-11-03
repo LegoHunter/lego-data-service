@@ -8,6 +8,7 @@ import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Path;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
@@ -15,6 +16,7 @@ import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import java.lang.reflect.Method;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,6 +37,25 @@ class ItemInventoryControllerAdviceTest {
                 .satisfies(error -> {
                     assertThat(error.getCode()).isEqualTo("BUSINESS_RULE");
                     assertThat(error.getMessage()).isEqualTo("Nope");
+                });
+    }
+
+    @Test
+    void dataIntegrityViolationReturnsConflictInsteadOfServerError() {
+        DataIntegrityViolationException failure = new DataIntegrityViolationException(
+                "Error updating database",
+                new SQLIntegrityConstraintViolationException("Column 'is_retain' cannot be null"));
+
+        ResponseEntity<ApiErrorResponse> response = advice.dataIntegrityViolationHandler(failure);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(409);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("Request conflicts with a database constraint");
+        assertThat(response.getBody().getErrors()).singleElement()
+                .satisfies(error -> {
+                    assertThat(error.getCode()).isEqualTo("DATA_INTEGRITY");
+                    // The database's own wording stays in the log, not the response.
+                    assertThat(error.getMessage()).doesNotContain("is_retain");
                 });
     }
 

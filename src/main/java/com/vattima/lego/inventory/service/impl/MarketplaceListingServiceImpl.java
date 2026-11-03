@@ -41,6 +41,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static io.legohunter.data.dto.ExternalService.Service.BRICKLINK;
@@ -413,29 +414,41 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
         );
     }
 
+    /**
+     * Applies the BrickLink draft fields a request supplies onto {@code listing}. Only fields present
+     * in the request change, so a PATCH that leaves a field out keeps its stored value. The two flags
+     * the table requires ({@code is_retain}, {@code is_stock_room}) default to {@code false} when
+     * neither the request nor the stored row provides them; non-production then forces stockroom.
+     * The remote safety status is set to {@code NOT_VERIFIED} only on a row that has none, so an
+     * edit never discards the result lego-data-ingress recorded for the BrickLink lot.
+     */
     private BricklinkMarketplaceListing applyBricklinkUpdate(
             BricklinkMarketplaceListing listing,
             BricklinkListingDraftRequest request,
             String itemTypeCode
     ) {
         if (request != null) {
-            if (request.getColorId() != null) {
-                listing.setColorId(request.getColorId());
-            }
-            listing.setColorName(request.getColorName());
-            listing.setBulk(request.getBulk());
-            listing.setIsRetain(request.getIsRetain());
-            listing.setIsStockRoom(request.getIsStockRoom());
-            listing.setStockRoomId(request.getStockRoomId());
-            listing.setSaleRate(request.getSaleRate());
-            listing.setTierQuantity1(request.getTierQuantity1());
-            listing.setTierPrice1(request.getTierPrice1());
-            listing.setTierQuantity2(request.getTierQuantity2());
-            listing.setTierPrice2(request.getTierPrice2());
-            listing.setTierQuantity3(request.getTierQuantity3());
-            listing.setTierPrice3(request.getTierPrice3());
-            listing.setMyWeight(request.getMyWeight());
-            listing.setRemarks(request.getRemarks());
+            setIfPresent(request.getColorId(), listing::setColorId);
+            setIfPresent(request.getColorName(), listing::setColorName);
+            setIfPresent(request.getBulk(), listing::setBulk);
+            setIfPresent(request.getIsRetain(), listing::setIsRetain);
+            setIfPresent(request.getIsStockRoom(), listing::setIsStockRoom);
+            setIfPresent(request.getStockRoomId(), listing::setStockRoomId);
+            setIfPresent(request.getSaleRate(), listing::setSaleRate);
+            setIfPresent(request.getTierQuantity1(), listing::setTierQuantity1);
+            setIfPresent(request.getTierPrice1(), listing::setTierPrice1);
+            setIfPresent(request.getTierQuantity2(), listing::setTierQuantity2);
+            setIfPresent(request.getTierPrice2(), listing::setTierPrice2);
+            setIfPresent(request.getTierQuantity3(), listing::setTierQuantity3);
+            setIfPresent(request.getTierPrice3(), listing::setTierPrice3);
+            setIfPresent(request.getMyWeight(), listing::setMyWeight);
+            setIfPresent(request.getRemarks(), listing::setRemarks);
+        }
+        if (listing.getIsRetain() == null) {
+            listing.setIsRetain(false);
+        }
+        if (listing.getIsStockRoom() == null) {
+            listing.setIsStockRoom(false);
         }
         BricklinkInventoryColorPolicy.Resolution color = BricklinkInventoryColorPolicy.resolve(
                 itemTypeCode,
@@ -451,10 +464,21 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
             listing.setIsStockRoom(true);
             listing.setStockRoomId(properties.getNonProdBricklinkStockroomId());
             listing.setEnvironmentCode(properties.getEnvironmentCode());
-            listing.setLastRemoteSafetyStatusCode("NOT_VERIFIED");
-            listing.setLastRemoteSafetyMessage("Local draft only; remote BrickLink inventory has not been created or verified");
+            // Only lego-data-ingress checks the remote lot. Fill the placeholder for a row it has
+            // never checked, but keep a status it recorded (VERIFIED or a block reason): a local
+            // edit changes nothing on BrickLink, and the next sync attempt records a fresh result.
+            if (listing.getLastRemoteSafetyStatusCode() == null) {
+                listing.setLastRemoteSafetyStatusCode("NOT_VERIFIED");
+                listing.setLastRemoteSafetyMessage("Local draft only; remote BrickLink inventory has not been created or verified");
+            }
         }
         return listing;
+    }
+
+    private static <T> void setIfPresent(T value, Consumer<T> setter) {
+        if (value != null) {
+            setter.accept(value);
+        }
     }
 
     private ItemInventoryExternalCatalogItem requireCatalogLink(
