@@ -1,5 +1,6 @@
 package com.vattima.lego.inventory.service.config;
 
+import io.legohunter.lego.data.environment.LegoEnvironmentProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -39,7 +40,7 @@ class MarketplaceListingDraftStockroomValidatorTest {
 
     @Test
     void refusesToStartWithoutAStockroomOutsideProd() {
-        assertThat(MarketplaceListingDraftStockroomValidator.violations(lowerEnvironment("dev", null)))
+        assertThat(MarketplaceListingDraftStockroomValidator.violations(lowerEnvironment("dev", null), sameEnvironment(lowerEnvironment("dev", null))))
                 .singleElement().asString()
                 .contains("lego.marketplace-listing-drafts.non-prod-bricklink-stockroom-id must be set for environment 'dev' (expected B)");
     }
@@ -49,9 +50,24 @@ class MarketplaceListingDraftStockroomValidatorTest {
         MarketplaceListingDraftProperties properties = lowerEnvironment("sandbox", "C");
         properties.setProduction(true);
 
-        assertThat(MarketplaceListingDraftStockroomValidator.violations(properties))
+        assertThat(MarketplaceListingDraftStockroomValidator.violations(properties, sameEnvironment(properties)))
                 .singleElement().asString()
                 .contains("lego.marketplace-listing-drafts.production is true but environment-code 'sandbox' is not PROD");
+    }
+
+    @Test
+    void refusesDraftsNamingAnotherEnvironmentThanLegoEnvironment() {
+        // lego.environment is what the lego-data starter checked against the database.
+        assertThat(MarketplaceListingDraftStockroomValidator.violations(lowerEnvironment("sandbox", "C"), environment("dev", false)))
+                .singleElement().asString()
+                .contains("lego.marketplace-listing-drafts.environment-code 'sandbox' must equal lego.environment.code 'dev'");
+    }
+
+    @Test
+    void refusesADraftProductionFlagThatDisagreesWithLegoEnvironment() {
+        assertThat(MarketplaceListingDraftStockroomValidator.violations(lowerEnvironment("sandbox", "C"), environment("sandbox", true)))
+                .singleElement().asString()
+                .contains("lego.marketplace-listing-drafts.production (false) must equal lego.environment.production (true)");
     }
 
     @Test
@@ -69,7 +85,19 @@ class MarketplaceListingDraftStockroomValidatorTest {
     }
 
     private static MarketplaceListingDraftStockroomValidator validator(MarketplaceListingDraftProperties properties) {
-        return new MarketplaceListingDraftStockroomValidator(properties);
+        return new MarketplaceListingDraftStockroomValidator(properties, sameEnvironment(properties));
+    }
+
+    /** A {@code lego.environment} that agrees with the draft settings. */
+    private static LegoEnvironmentProperties sameEnvironment(MarketplaceListingDraftProperties properties) {
+        return environment(properties.getEnvironmentCode(), properties.isProduction());
+    }
+
+    private static LegoEnvironmentProperties environment(String code, boolean production) {
+        LegoEnvironmentProperties environment = new LegoEnvironmentProperties();
+        environment.setCode(code);
+        environment.setProduction(production);
+        return environment;
     }
 
     private static MarketplaceListingDraftProperties lowerEnvironment(String environment, String stockroom) {

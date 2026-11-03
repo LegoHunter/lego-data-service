@@ -9,9 +9,15 @@ spring:
 lego:
   data:
     enabled: true
+  # Runtime environment identity, declared once per profile (bound by the lego-data starter).
+  # At startup the lego-data starter refuses to run unless the code matches the connected database
+  # (sandbox=lego_sandbox, dev=lego_dev, prod=lego_prod; local=anything but lego_prod).
+  environment:
+    code: local
+    production: false
   marketplace-listing-drafts:
-    production: ${MARKETPLACE_LISTING_DRAFTS_PRODUCTION:false}
-    environment-code: ${MARKETPLACE_LISTING_DRAFTS_ENVIRONMENT_CODE:local}
+    production: ${lego.environment.production}
+    environment-code: ${lego.environment.code}
     non-prod-bricklink-stockroom-id: ${MARKETPLACE_LISTING_DRAFTS_NON_PROD_BRICKLINK_STOCKROOM_ID:C}
 
 management:
