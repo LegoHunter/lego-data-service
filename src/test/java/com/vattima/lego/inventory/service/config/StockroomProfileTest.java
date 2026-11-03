@@ -1,5 +1,6 @@
 package com.vattima.lego.inventory.service.config;
 
+import io.legohunter.data.environment.EnvironmentDatabasePolicy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -51,7 +52,37 @@ class StockroomProfileTest {
                 .doesNotThrowAnyException();
     }
 
+    /**
+     * Each real profile points its data source at its own environment's schema. The database URL
+     * lives in the mounted credentials file, so this relies on the key-naming convention
+     * {@code rasppi5-01-<schema with dashes>}.
+     */
+    @ParameterizedTest(name = "{0}")
+    @CsvSource({
+            "'sandbox,kubernetes', lego_sandbox",
+            "'dev,kubernetes',     lego_dev",
+            "'prod,kubernetes',    lego_prod",
+    })
+    void eachProfileUsesTheDatabaseOfItsEnvironment(String profiles, String schema) {
+        MarketplaceListingDraftProperties drafts = drafts(profiles);
+
+        assertThat(effective(profiles).getProperty("spring.datasource.database-key-name"))
+                .isEqualTo("rasppi5-01-" + schema.replace('_', '-'));
+        assertThat(EnvironmentDatabasePolicy.violations(MarketplaceListingDraftStockroomValidator.PREFIX,
+                drafts.getEnvironmentCode(), drafts.isProduction(), schema))
+                .isEmpty();
+    }
+
     private static MarketplaceListingDraftProperties drafts(String profiles) {
+        Properties effective = effective(profiles);
+        MutablePropertySources sources = new MutablePropertySources();
+        sources.addFirst(new PropertiesPropertySource("profiles", effective));
+        return new Binder(ConfigurationPropertySources.from(sources), new PropertySourcesPlaceholdersResolver(sources))
+                .bind("lego.marketplace-listing-drafts", Bindable.ofInstance(new MarketplaceListingDraftProperties()))
+                .get();
+    }
+
+    private static Properties effective(String profiles) {
         Properties effective = new Properties();
         effective.putAll(load("application.yml"));
         for (String profile : profiles.split(",")) {
@@ -59,11 +90,7 @@ class StockroomProfileTest {
                 effective.putAll(load("application-%s.yml".formatted(profile.trim())));
             }
         }
-        MutablePropertySources sources = new MutablePropertySources();
-        sources.addFirst(new PropertiesPropertySource("profiles", effective));
-        return new Binder(ConfigurationPropertySources.from(sources), new PropertySourcesPlaceholdersResolver(sources))
-                .bind("lego.marketplace-listing-drafts", Bindable.ofInstance(new MarketplaceListingDraftProperties()))
-                .get();
+        return effective;
     }
 
     private static Properties load(String resourceName) {

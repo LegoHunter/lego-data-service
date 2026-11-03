@@ -80,6 +80,7 @@ Phase 3/4 marketplace rules:
 - In non-production environments, BrickLink draft details are forced to stockroom-only using `lego.marketplace-listing-drafts.non-prod-bricklink-stockroom-id`.
 - The BrickLink stockroom mapping is `sandbox=C`, `dev=B`. Stockroom `A` is reserved for PROD's own deliberately hidden lots; PROD drafts are not forced into a stockroom (HOMELAB-20).
 - There is no code default. At startup `MarketplaceListingDraftStockroomValidator` runs the shared rules from lego-data (`BricklinkStockroomPolicy`, `LegoEnvironment`). The service refuses to start if the environment code is unknown or disagrees with `production`, or if a lower environment has no stockroom, has `A`, or has another environment's stockroom.
+- At startup `EnvironmentDatabaseValidator` also reads the connected schema (`SELECT DATABASE()`) and runs the shared `EnvironmentDatabasePolicy` from lego-data: `sandbox` must be on `lego_sandbox`, `dev` on `lego_dev`, `prod` on `lego_prod`, and `local` on anything except `lego_prod` (HOMELAB-19). The service also refuses to start while the database cannot be reached, because the environment can't be verified. With `lego.data.enabled=false` there is no data source and nothing to check.
 - The default unprofiled/local stockroom is `C` unless overridden with `MARKETPLACE_LISTING_DRAFTS_NON_PROD_BRICKLINK_STOCKROOM_ID`.
 - Missing `item_inventory_photos` for a `SELLABLE` inventory row is reported as a readiness warning, not a blocker.
 
