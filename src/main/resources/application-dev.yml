@@ -21,7 +21,8 @@ otel:
       deployment.environment: dev
 
 lego:
-  marketplace-listing-drafts:
+  environment:
+    code: dev
     production: false
-    environment-code: dev
+  marketplace-listing-drafts:
     non-prod-bricklink-stockroom-id: B

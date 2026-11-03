@@ -21,9 +21,10 @@ otel:
       deployment.environment: sandbox
 
 lego:
-  marketplace-listing-drafts:
+  environment:
+    code: sandbox
     production: false
-    environment-code: sandbox
+  marketplace-listing-drafts:
     non-prod-bricklink-stockroom-id: C
 
 logging:
