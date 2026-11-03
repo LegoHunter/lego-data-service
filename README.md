@@ -52,7 +52,7 @@ Phase 2 correction rules:
 - Each transaction item must have exactly one item-level `PRICE` cost.
 - Cost/payment corrections are intentionally row-scoped add/update/delete operations.
 - Corrections do not create marketplace listings and do not enqueue marketplace sync requests.
-- Missing resources return structured `404` responses; validation and business-rule failures return structured `400` responses.
+- Missing resources return structured `404` responses; validation and business-rule failures return structured `400` responses. A request the database refuses (a NOT NULL, unique or foreign-key constraint) returns a structured `409` with code `DATA_INTEGRITY` instead of a `500`; the database's reason is logged, not returned (HOMELAB-35).
 
 Phase 3/4 marketplace listing draft/readiness behavior:
 
@@ -76,6 +76,7 @@ Phase 3/4 marketplace rules:
 - Draft creation may omit `unitPrice`; an unpriced non-fixed `DRAFT` is eligible for Pricing Plane onboarding and reports `INITIAL_PRICE_PENDING` until Pricing Plane applies a positive initial price. Unpriced active or fixed listings report `MISSING_FIXED_UNIT_PRICE` and require a positive operator-supplied price before marketplace sync.
 - A request may set `updateSaleIntentToSellable=true` to flip an existing inventory row to `SELLABLE` while creating the local draft.
 - An inventory row may have only one open local draft per marketplace.
+- BrickLink draft details (`bricklink`) are patched field by field: `PATCH` changes only the fields it sends and keeps the rest, so a field cannot be cleared by sending `null`. `isRetain` and `isStockRoom` default to `false` when neither the request nor the stored row sets them (the table requires both); non-production then forces stockroom as below (HOMELAB-35).
 - `LISTING_CREATE` sync request creation requires a ready local draft, positive `unitPrice`, no existing remote BrickLink inventory id, and no active duplicate `PENDING` or `CLAIMED` `LISTING_CREATE` request.
 - In non-production environments, BrickLink draft details are forced to stockroom-only using `lego.marketplace-listing-drafts.non-prod-bricklink-stockroom-id`.
 - The BrickLink stockroom mapping is `sandbox=C`, `dev=B`. Stockroom `A` is reserved for PROD's own deliberately hidden lots; PROD drafts are not forced into a stockroom (HOMELAB-20).

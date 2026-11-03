@@ -6,6 +6,8 @@ import com.vattima.lego.inventory.service.exception.NotFoundException;
 import com.vattima.lego.inventory.service.exception.ValidationException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.ObjectError;
@@ -19,6 +21,7 @@ import org.springframework.web.context.request.WebRequest;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @ControllerAdvice
 public class ItemInventoryControllerAdvice {
     @ExceptionHandler(ValidationException.class)
@@ -41,6 +44,23 @@ public class ItemInventoryControllerAdvice {
                 .errors(List.of(ApiValidationError.builder()
                         .message(e.getMessage())
                         .code("NOT_FOUND")
+                        .build()))
+                .build());
+    }
+
+    /**
+     * A row the database refuses (a NOT NULL, unique or foreign-key constraint) is a request the
+     * service failed to validate, not a server crash: answer 409 with a generic message and log the
+     * database's reason, rather than letting it surface as a 500.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiErrorResponse> dataIntegrityViolationHandler(DataIntegrityViolationException e) {
+        log.warn("Request rejected by a database constraint: {}", e.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.builder()
+                .message("Request conflicts with a database constraint")
+                .errors(List.of(ApiValidationError.builder()
+                        .message("The data could not be saved because it violates a database constraint")
+                        .code("DATA_INTEGRITY")
                         .build()))
                 .build());
     }

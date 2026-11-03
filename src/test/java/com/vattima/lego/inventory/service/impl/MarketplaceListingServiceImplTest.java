@@ -203,10 +203,73 @@ class MarketplaceListingServiceImplTest {
 
         ArgumentCaptor<BricklinkMarketplaceListing> bricklinkCaptor = ArgumentCaptor.forClass(BricklinkMarketplaceListing.class);
         verify(bricklinkMarketplaceListingDao).insert(bricklinkCaptor.capture());
-        assertThat(bricklinkCaptor.getValue().getIsStockRoom()).isNull();
+        // Not forced into a stockroom in PROD, but the NOT NULL flags still get a value.
+        assertThat(bricklinkCaptor.getValue().getIsStockRoom()).isFalse();
+        assertThat(bricklinkCaptor.getValue().getIsRetain()).isFalse();
         assertThat(bricklinkCaptor.getValue().getStockRoomId()).isNull();
         assertThat(bricklinkCaptor.getValue().getEnvironmentCode()).isNull();
         verify(itemInventoryDao, never()).updateSaleIntent(any(), any(), any(), any());
+    }
+
+    @Test
+    void createDraftDefaultsIsRetainWhenTheRequestLeavesItOut() {
+        ItemInventory inventory = inventory("SELLABLE", "AVAILABLE", true);
+        MarketplaceListing persistedListing = listing(101, inventory.getItemInventoryId(), new BigDecimal("999.99"), "DRAFT");
+        stubCreateInputs(inventory, Set.of(), persistedListing, bricklinkDraft(null));
+
+        // The SANDBOX request that returned 500: stockroom set, isRetain left out.
+        service.createDraft(MarketplaceListingDraftCreateRequest.builder()
+                .itemInventoryId(202)
+                .marketplaceCode("BRICKLINK")
+                .unitPrice(new BigDecimal("999.99"))
+                .currencyCode("USD")
+                .fixedPrice(true)
+                .bricklink(BricklinkListingDraftRequest.builder().isStockRoom(true).stockRoomId("C").build())
+                .build());
+
+        ArgumentCaptor<BricklinkMarketplaceListing> bricklinkCaptor = ArgumentCaptor.forClass(BricklinkMarketplaceListing.class);
+        verify(bricklinkMarketplaceListingDao).insert(bricklinkCaptor.capture());
+        assertThat(bricklinkCaptor.getValue().getIsRetain()).isFalse();
+        assertThat(bricklinkCaptor.getValue().getIsStockRoom()).isTrue();
+    }
+
+    @Test
+    void createDraftKeepsAnExplicitIsRetain() {
+        ItemInventory inventory = inventory("SELLABLE", "AVAILABLE", true);
+        MarketplaceListing persistedListing = listing(101, inventory.getItemInventoryId(), new BigDecimal("10.00"), "DRAFT");
+        stubCreateInputs(inventory, Set.of(), persistedListing, bricklinkDraft(null));
+
+        service.createDraft(MarketplaceListingDraftCreateRequest.builder()
+                .itemInventoryId(202)
+                .marketplaceCode("BRICKLINK")
+                .unitPrice(new BigDecimal("10.00"))
+                .currencyCode("USD")
+                .bricklink(BricklinkListingDraftRequest.builder().isRetain(true).build())
+                .build());
+
+        ArgumentCaptor<BricklinkMarketplaceListing> bricklinkCaptor = ArgumentCaptor.forClass(BricklinkMarketplaceListing.class);
+        verify(bricklinkMarketplaceListingDao).insert(bricklinkCaptor.capture());
+        assertThat(bricklinkCaptor.getValue().getIsRetain()).isTrue();
+    }
+
+    @Test
+    void createDraftWithoutBricklinkDetailsStillFillsTheRequiredFlags() {
+        ItemInventory inventory = inventory("SELLABLE", "AVAILABLE", true);
+        MarketplaceListing persistedListing = listing(101, inventory.getItemInventoryId(), new BigDecimal("10.00"), "DRAFT");
+        stubCreateInputs(inventory, Set.of(), persistedListing, bricklinkDraft(null));
+
+        service.createDraft(MarketplaceListingDraftCreateRequest.builder()
+                .itemInventoryId(202)
+                .marketplaceCode("BRICKLINK")
+                .unitPrice(new BigDecimal("10.00"))
+                .currencyCode("USD")
+                .build());
+
+        ArgumentCaptor<BricklinkMarketplaceListing> bricklinkCaptor = ArgumentCaptor.forClass(BricklinkMarketplaceListing.class);
+        verify(bricklinkMarketplaceListingDao).insert(bricklinkCaptor.capture());
+        assertThat(bricklinkCaptor.getValue().getIsRetain()).isFalse();
+        assertThat(bricklinkCaptor.getValue().getIsStockRoom()).isTrue();
+        assertThat(bricklinkCaptor.getValue().getStockRoomId()).isEqualTo("C");
     }
 
     @Test
@@ -459,6 +522,84 @@ class MarketplaceListingServiceImplTest {
     }
 
     @Test
+    void updateDraftKeepsBricklinkFieldsThatThePatchLeavesOut() {
+        ItemInventory inventory = inventory("SELLABLE", "AVAILABLE", true);
+        MarketplaceListing existing = listing(101, 202, new BigDecimal("12.00"), "DRAFT");
+        BricklinkMarketplaceListing stored = BricklinkMarketplaceListing.builder()
+                .marketplaceListingId(101)
+                .colorName("Not Applicable")
+                .bulk(3)
+                .isRetain(true)
+                .isStockRoom(true)
+                .stockRoomId("C")
+                .tierQuantity1(5)
+                .tierPrice1(new BigDecimal("9.00"))
+                .myWeight(new BigDecimal("1486"))
+                .remarks("stored remarks")
+                .build();
+        stubUpdateInputs(inventory, existing, stored);
+
+        service.updateDraft(101, MarketplaceListingDraftUpdateRequest.builder()
+                .bricklink(BricklinkListingDraftRequest.builder().saleRate(10).build())
+                .build());
+
+        ArgumentCaptor<BricklinkMarketplaceListing> bricklinkCaptor = ArgumentCaptor.forClass(BricklinkMarketplaceListing.class);
+        verify(bricklinkMarketplaceListingDao).update(bricklinkCaptor.capture());
+        BricklinkMarketplaceListing saved = bricklinkCaptor.getValue();
+        assertThat(saved.getSaleRate()).isEqualTo(10);
+        assertThat(saved.getColorName()).isEqualTo("Not Applicable");
+        assertThat(saved.getBulk()).isEqualTo(3);
+        assertThat(saved.getIsRetain()).isTrue();
+        assertThat(saved.getTierQuantity1()).isEqualTo(5);
+        assertThat(saved.getTierPrice1()).isEqualByComparingTo("9.00");
+        assertThat(saved.getMyWeight()).isEqualByComparingTo("1486");
+        assertThat(saved.getRemarks()).isEqualTo("stored remarks");
+    }
+
+    @Test
+    void updateDraftChangesTheBricklinkFieldsThePatchSupplies() {
+        ItemInventory inventory = inventory("SELLABLE", "AVAILABLE", true);
+        MarketplaceListing existing = listing(101, 202, new BigDecimal("12.00"), "DRAFT");
+        BricklinkMarketplaceListing stored = BricklinkMarketplaceListing.builder()
+                .marketplaceListingId(101)
+                .bulk(3)
+                .isRetain(true)
+                .isStockRoom(true)
+                .stockRoomId("C")
+                .remarks("stored remarks")
+                .build();
+        stubUpdateInputs(inventory, existing, stored);
+
+        service.updateDraft(101, MarketplaceListingDraftUpdateRequest.builder()
+                .bricklink(BricklinkListingDraftRequest.builder().isRetain(false).bulk(1).remarks("new remarks").build())
+                .build());
+
+        ArgumentCaptor<BricklinkMarketplaceListing> bricklinkCaptor = ArgumentCaptor.forClass(BricklinkMarketplaceListing.class);
+        verify(bricklinkMarketplaceListingDao).update(bricklinkCaptor.capture());
+        assertThat(bricklinkCaptor.getValue().getIsRetain()).isFalse();
+        assertThat(bricklinkCaptor.getValue().getBulk()).isEqualTo(1);
+        assertThat(bricklinkCaptor.getValue().getRemarks()).isEqualTo("new remarks");
+    }
+
+    @Test
+    void updateDraftFillsTheRequiredFlagsOnAStoredRowThatLacksThem() {
+        properties.setProduction(true);
+        ItemInventory inventory = inventory("SELLABLE", "AVAILABLE", true);
+        MarketplaceListing existing = listing(101, 202, new BigDecimal("12.00"), "DRAFT");
+        BricklinkMarketplaceListing stored = BricklinkMarketplaceListing.builder().marketplaceListingId(101).build();
+        stubUpdateInputs(inventory, existing, stored);
+
+        service.updateDraft(101, MarketplaceListingDraftUpdateRequest.builder()
+                .bricklink(BricklinkListingDraftRequest.builder().bulk(2).build())
+                .build());
+
+        ArgumentCaptor<BricklinkMarketplaceListing> bricklinkCaptor = ArgumentCaptor.forClass(BricklinkMarketplaceListing.class);
+        verify(bricklinkMarketplaceListingDao).update(bricklinkCaptor.capture());
+        assertThat(bricklinkCaptor.getValue().getIsRetain()).isFalse();
+        assertThat(bricklinkCaptor.getValue().getIsStockRoom()).isFalse();
+    }
+
+    @Test
     void updateDraftCanCreateMissingBricklinkDetails() {
         ItemInventory inventory = inventory("SELLABLE", "AVAILABLE", true);
         MarketplaceListing existing = listing(101, 202, new BigDecimal("12.00"), "DRAFT");
@@ -697,6 +838,18 @@ class MarketplaceListingServiceImplTest {
         when(bricklinkMarketplaceListingDao.insert(any(BricklinkMarketplaceListing.class))).thenReturn(persistedBricklink);
         when(bricklinkMarketplaceListingDao.findByMarketplaceListingId(101)).thenReturn(Optional.of(persistedBricklink));
         when(itemInventoryPhotoDao.findByItemInventoryId(202)).thenReturn(photos);
+    }
+
+    private void stubUpdateInputs(ItemInventory inventory, MarketplaceListing existing, BricklinkMarketplaceListing stored) {
+        when(marketplaceListingDao.findByMarketplaceListingId(101)).thenReturn(Optional.of(existing));
+        when(itemInventoryDao.findByItemInventoryId(202)).thenReturn(Optional.of(inventory));
+        when(itemInventoryExternalCatalogItemDao.findByItemInventoryId(202)).thenReturn(Set.of(primaryBricklinkCatalogLink()));
+        when(externalServiceDao.findByServiceCode("BRICKLINK")).thenReturn(Optional.of(bricklinkService()));
+        when(marketplaceListingDao.findByItemInventoryId(202)).thenReturn(Set.of(existing));
+        when(marketplaceListingDao.update(existing)).thenReturn(existing);
+        when(bricklinkMarketplaceListingDao.findByMarketplaceListingId(101)).thenReturn(Optional.of(stored));
+        when(bricklinkMarketplaceListingDao.update(any(BricklinkMarketplaceListing.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(itemInventoryPhotoDao.findByItemInventoryId(202)).thenReturn(Set.of());
     }
 
     private void stubReadyListing(MarketplaceListing listing, BricklinkMarketplaceListing bricklinkListing) {
