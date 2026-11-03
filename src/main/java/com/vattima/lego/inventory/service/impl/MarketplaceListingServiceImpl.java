@@ -419,6 +419,8 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
      * in the request change, so a PATCH that leaves a field out keeps its stored value. The two flags
      * the table requires ({@code is_retain}, {@code is_stock_room}) default to {@code false} when
      * neither the request nor the stored row provides them; non-production then forces stockroom.
+     * The remote safety status is set to {@code NOT_VERIFIED} only on a row that has none, so an
+     * edit never discards the result lego-data-ingress recorded for the BrickLink lot.
      */
     private BricklinkMarketplaceListing applyBricklinkUpdate(
             BricklinkMarketplaceListing listing,
@@ -462,8 +464,13 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
             listing.setIsStockRoom(true);
             listing.setStockRoomId(properties.getNonProdBricklinkStockroomId());
             listing.setEnvironmentCode(properties.getEnvironmentCode());
-            listing.setLastRemoteSafetyStatusCode("NOT_VERIFIED");
-            listing.setLastRemoteSafetyMessage("Local draft only; remote BrickLink inventory has not been created or verified");
+            // Only lego-data-ingress checks the remote lot. Fill the placeholder for a row it has
+            // never checked, but keep a status it recorded (VERIFIED or a block reason): a local
+            // edit changes nothing on BrickLink, and the next sync attempt records a fresh result.
+            if (listing.getLastRemoteSafetyStatusCode() == null) {
+                listing.setLastRemoteSafetyStatusCode("NOT_VERIFIED");
+                listing.setLastRemoteSafetyMessage("Local draft only; remote BrickLink inventory has not been created or verified");
+            }
         }
         return listing;
     }

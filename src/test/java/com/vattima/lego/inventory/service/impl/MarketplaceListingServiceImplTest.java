@@ -600,6 +600,53 @@ class MarketplaceListingServiceImplTest {
     }
 
     @Test
+    void updateDraftKeepsTheSafetyResultTheIngressRecordedForTheRemoteLot() {
+        ItemInventory inventory = inventory("SELLABLE", "AVAILABLE", true);
+        MarketplaceListing existing = listing(101, 202, new BigDecimal("12.00"), "ACTIVE");
+        BricklinkMarketplaceListing stored = BricklinkMarketplaceListing.builder()
+                .marketplaceListingId(101)
+                .bricklinkInventoryId(569402768)
+                .isRetain(false)
+                .isStockRoom(true)
+                .stockRoomId("C")
+                .lastRemoteSafetyStatusCode("VERIFIED")
+                .lastRemoteSafetyMessage("Local listing passed BrickLink create safety checks")
+                .build();
+        stubUpdateInputs(inventory, existing, stored);
+
+        service.updateDraft(101, MarketplaceListingDraftUpdateRequest.builder()
+                .bricklink(BricklinkListingDraftRequest.builder().saleRate(0).build())
+                .build());
+
+        ArgumentCaptor<BricklinkMarketplaceListing> bricklinkCaptor = ArgumentCaptor.forClass(BricklinkMarketplaceListing.class);
+        verify(bricklinkMarketplaceListingDao).update(bricklinkCaptor.capture());
+        assertThat(bricklinkCaptor.getValue().getLastRemoteSafetyStatusCode()).isEqualTo("VERIFIED");
+        assertThat(bricklinkCaptor.getValue().getLastRemoteSafetyMessage())
+                .isEqualTo("Local listing passed BrickLink create safety checks");
+    }
+
+    @Test
+    void updateDraftFillsTheSafetyPlaceholderOnARowTheIngressNeverChecked() {
+        ItemInventory inventory = inventory("SELLABLE", "AVAILABLE", true);
+        MarketplaceListing existing = listing(101, 202, new BigDecimal("12.00"), "DRAFT");
+        BricklinkMarketplaceListing stored = BricklinkMarketplaceListing.builder()
+                .marketplaceListingId(101)
+                .isRetain(false)
+                .isStockRoom(true)
+                .stockRoomId("C")
+                .build();
+        stubUpdateInputs(inventory, existing, stored);
+
+        service.updateDraft(101, MarketplaceListingDraftUpdateRequest.builder()
+                .bricklink(BricklinkListingDraftRequest.builder().bulk(2).build())
+                .build());
+
+        ArgumentCaptor<BricklinkMarketplaceListing> bricklinkCaptor = ArgumentCaptor.forClass(BricklinkMarketplaceListing.class);
+        verify(bricklinkMarketplaceListingDao).update(bricklinkCaptor.capture());
+        assertThat(bricklinkCaptor.getValue().getLastRemoteSafetyStatusCode()).isEqualTo("NOT_VERIFIED");
+    }
+
+    @Test
     void updateDraftCanCreateMissingBricklinkDetails() {
         ItemInventory inventory = inventory("SELLABLE", "AVAILABLE", true);
         MarketplaceListing existing = listing(101, 202, new BigDecimal("12.00"), "DRAFT");
