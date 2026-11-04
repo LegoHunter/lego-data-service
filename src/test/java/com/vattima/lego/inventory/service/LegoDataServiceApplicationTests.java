@@ -19,16 +19,28 @@ import io.legohunter.data.dao.TransactionItemDao;
 import io.legohunter.data.dao.TransactionPlatformDao;
 import io.legohunter.data.dao.TransactionsDao;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.context.ApplicationContext;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(properties = {
 		"lego.data.enabled=false",
 		"management.tracing.enabled=false",
 		"otel.sdk.disabled=true",
-		"spring.autoconfigure.exclude=io.opentelemetry.instrumentation.spring.autoconfigure.OpenTelemetryAutoConfiguration,io.opentelemetry.instrumentation.spring.autoconfigure.internal.instrumentation.logging.OpenTelemetryAppenderAutoConfiguration,org.mybatis.spring.boot.autoconfigure.MybatisAutoConfiguration,org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration"
+		"spring.autoconfigure.exclude=io.opentelemetry.instrumentation.spring.autoconfigure.OpenTelemetryAutoConfiguration,io.opentelemetry.instrumentation.spring.autoconfigure.internal.instrumentation.logging.OpenTelemetryAppenderAutoConfiguration,org.mybatis.spring.boot.autoconfigure.MybatisAutoConfiguration"
 })
+@ExtendWith(OutputCaptureExtension.class)
 class LegoDataServiceApplicationTests {
+
+	@Autowired
+	private ApplicationContext context;
 
 	@MockitoBean
 	private CarrierDao carrierDao;
@@ -86,6 +98,14 @@ class LegoDataServiceApplicationTests {
 
 	@Test
 	void contextLoads() {
+	}
+
+	@Test
+	void noDefaultUserIsCreatedSoNoGeneratedPasswordIsLogged(CapturedOutput output) {
+		// Spring Security's default in-memory user would log its password in clear text at startup.
+		// The exclusion lives on the application class; this test no longer excludes it itself.
+		assertThat(context.getBeansOfType(UserDetailsService.class)).isEmpty();
+		assertThat(output.getAll()).doesNotContain("generated security password");
 	}
 
 }
