@@ -1,5 +1,7 @@
 package com.vattima.lego.inventory.service.controller;
 
+import java.util.List;
+import io.legohunter.data.dto.ItemInventorySeedSource;
 import com.vattima.lego.inventory.service.api.ItemInventoryService;
 import com.vattima.lego.inventory.service.api.MarketplaceListingService;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
@@ -37,6 +39,17 @@ class ItemInventoryControllerTest {
 
     @Mock
     private MarketplaceListingService marketplaceListingService;
+
+    @Test
+    void findSeedSourcesPassesTheFiltersThrough() {
+        ItemInventorySeedSource seedSource = ItemInventorySeedSource.builder().itemInventoryId(955).sourceKey("28").build();
+        when(itemInventoryService.findSeedSources("LEGO_PROD_LEGACY", "run-1")).thenReturn(List.of(seedSource));
+
+        ResponseEntity<List<ItemInventorySeedSource>> response = controller().findSeedSources("LEGO_PROD_LEGACY", "run-1");
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).containsExactly(seedSource);
+    }
 
     @Test
     void findAllReturnsInventoryRows() {

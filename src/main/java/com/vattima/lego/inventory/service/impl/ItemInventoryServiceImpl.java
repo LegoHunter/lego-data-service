@@ -1,5 +1,8 @@
 package com.vattima.lego.inventory.service.impl;
 
+import com.vattima.lego.inventory.service.validation.SeedSourceIntakeGuard;
+import io.legohunter.data.dao.ItemInventorySeedSourceDao;
+import io.legohunter.data.dto.ItemInventorySeedSource;
 import com.vattima.lego.inventory.service.api.ItemInventoryService;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryResponse;
@@ -87,12 +90,15 @@ public class ItemInventoryServiceImpl implements ItemInventoryService {
     private final TransactionPlatformDao transactionPlatformDao;
     private final TransactionsDao transactionsDao;
     private final InventoryAcquisitionBusinessValidator inventoryAcquisitionBusinessValidator;
+    private final ItemInventorySeedSourceDao itemInventorySeedSourceDao;
+    private final SeedSourceIntakeGuard seedSourceIntakeGuard;
 
     @Override
     @Transactional
     public AddItemInventoryResponse addItemInventory(@Valid AddItemInventoryRequest request) {
         log.info("Adding item inventory acquisition transaction");
         inventoryAcquisitionBusinessValidator.validate(request);
+        seedSourceIntakeGuard.validate(request);
 
         Transactions transaction = insertTransaction(request);
         transactionCostDao.setTransactionCosts(transaction.getTransactionId(), toTransactionCosts(request.getCosts()));
@@ -102,6 +108,14 @@ public class ItemInventoryServiceImpl implements ItemInventoryService {
                 .forEach(itemRequest -> insertAcquisitionItem(transaction, itemRequest));
 
         return readBackTransactionTree(transaction.getTransactionId());
+    }
+
+    @Override
+    public List<ItemInventorySeedSource> findSeedSources(String sourceSystem, String seedRunId) {
+        return itemInventorySeedSourceDao.findAll().stream()
+                .filter(seedSource -> sourceSystem == null || sourceSystem.equals(seedSource.getSourceSystem()))
+                .filter(seedSource -> seedRunId == null || seedRunId.equals(seedSource.getSeedRunId()))
+                .toList();
     }
 
     @Override
@@ -365,6 +379,14 @@ public class ItemInventoryServiceImpl implements ItemInventoryService {
                 .externalCatalogItemId(catalogItem.getExternalCatalogItemId())
                 .primary(true)
                 .build());
+        if (itemRequest.getSeedSource() != null) {
+            itemInventorySeedSourceDao.insert(ItemInventorySeedSource.builder()
+                    .itemInventoryId(inventory.getItemInventoryId())
+                    .sourceSystem(itemRequest.getSeedSource().getSourceSystem())
+                    .sourceKey(itemRequest.getSeedSource().getSourceKey())
+                    .seedRunId(itemRequest.getSeedSource().getSeedRunId())
+                    .build());
+        }
 
         TransactionItem transactionItem = TransactionItem.builder()
                 .transactionId(transaction.getTransactionId())

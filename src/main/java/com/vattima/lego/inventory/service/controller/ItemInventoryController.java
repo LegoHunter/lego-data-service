@@ -15,6 +15,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import io.legohunter.data.dao.ItemInventoryDao;
 import io.legohunter.data.dto.ItemInventory;
+import io.legohunter.data.dto.ItemInventorySeedSource;
 import io.legohunter.data.dto.ItemInventorySearchCriteria;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Set;
 
 @RestController
@@ -78,6 +80,13 @@ public class ItemInventoryController {
             @RequestParam(required = false) String marketplaceCode
     ) {
         return ResponseEntity.ok(marketplaceListingService.evaluateReadiness(itemInventoryId, marketplaceCode));
+    }
+
+    @GetMapping("/seed-sources")
+    public ResponseEntity<List<ItemInventorySeedSource>> findSeedSources(
+            @RequestParam(required = false) String sourceSystem,
+            @RequestParam(required = false) String seedRunId) {
+        return ResponseEntity.ok(itemInventoryService.findSeedSources(sourceSystem, seedRunId));
     }
 
     @PostMapping
