@@ -1,5 +1,7 @@
 package com.vattima.lego.inventory.service.api;
 
+import java.util.List;
+import io.legohunter.data.dto.ItemInventorySeedSource;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryResponse;
 import com.vattima.lego.inventory.service.dto.CostRequest;
@@ -18,6 +20,9 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 public interface ItemInventoryService {
     AddItemInventoryResponse addItemInventory(@Valid AddItemInventoryRequest addItemInventoryRequest);
+
+    /** Seeded-item provenance (HOMELAB-40), optionally filtered by source system and seed run. */
+    List<ItemInventorySeedSource> findSeedSources(String sourceSystem, String seedRunId);
 
     AddItemInventoryResponse findTransactionTree(Long transactionId);
 

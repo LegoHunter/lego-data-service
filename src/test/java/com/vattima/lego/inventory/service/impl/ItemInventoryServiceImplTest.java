@@ -1,5 +1,9 @@
 package com.vattima.lego.inventory.service.impl;
 
+import com.vattima.lego.inventory.service.dto.SeedSourceRequest;
+import com.vattima.lego.inventory.service.validation.SeedSourceIntakeGuard;
+import io.legohunter.data.dao.ItemInventorySeedSourceDao;
+import io.legohunter.data.dto.ItemInventorySeedSource;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryRequest;
 import com.vattima.lego.inventory.service.dto.AddItemInventoryResponse;
 import com.vattima.lego.inventory.service.dto.CostRequest;
@@ -80,6 +84,8 @@ class ItemInventoryServiceImplTest {
     @Mock private TransactionPlatformDao transactionPlatformDao;
     @Mock private TransactionsDao transactionsDao;
     @Spy private InventoryAcquisitionBusinessValidator inventoryAcquisitionBusinessValidator = new InventoryAcquisitionBusinessValidator();
+    @Mock private ItemInventorySeedSourceDao itemInventorySeedSourceDao;
+    @Mock private SeedSourceIntakeGuard seedSourceIntakeGuard;
 
     @InjectMocks
     private ItemInventoryServiceImpl service;
@@ -87,6 +93,46 @@ class ItemInventoryServiceImplTest {
     @Test
     void addItemInventoryCreatesCompletePrivateAcquisitionTree() {
         AddItemInventoryRequest request = acquisitionRequest();
+
+        assertCompleteAcquisitionTree(request);
+
+        verify(seedSourceIntakeGuard).validate(request);
+        verifyNoInteractions(itemInventorySeedSourceDao);
+    }
+
+    @Test
+    void addItemInventoryRecordsTheSeedSourceOfASeededItem() {
+        AddItemInventoryRequest request = acquisitionRequest();
+        request.getInventoryItems().getFirst().setSeedSource(SeedSourceRequest.builder()
+                .sourceSystem("LEGO_PROD_LEGACY")
+                .sourceKey("28")
+                .seedRunId("11111111-1111-1111-1111-111111111111")
+                .build());
+
+        assertCompleteAcquisitionTree(request);
+
+        verify(seedSourceIntakeGuard).validate(request);
+        verify(itemInventorySeedSourceDao).insert(ItemInventorySeedSource.builder()
+                .itemInventoryId(202)
+                .sourceSystem("LEGO_PROD_LEGACY")
+                .sourceKey("28")
+                .seedRunId("11111111-1111-1111-1111-111111111111")
+                .build());
+    }
+
+    @Test
+    void addItemInventoryStopsBeforeAnyWriteWhenTheSeedSourceGuardRejects() {
+        AddItemInventoryRequest request = acquisitionRequest();
+        org.mockito.Mockito.doThrow(new ValidationException("refused")).when(seedSourceIntakeGuard).validate(request);
+
+        assertThatThrownBy(() -> service.addItemInventory(request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("refused");
+
+        verifyNoInteractions(transactionsDao, itemInventoryDao, paymentDao, transactionCostDao, itemInventorySeedSourceDao);
+    }
+
+    private void assertCompleteAcquisitionTree(AddItemInventoryRequest request) {
         Transactions insertedTransaction = Transactions.builder().transactionId(101L).notes("Order notes").build();
         ItemInventory insertedInventory = new ItemInventory();
         insertedInventory.setItemInventoryId(202);

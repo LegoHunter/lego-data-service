@@ -80,6 +80,9 @@ public class ItemInventoryRequest {
 
     @NotNull
     private Boolean active;
+    /** Set only by lower-environment seeding; refused in PROD. */
+    @Valid
+    private SeedSourceRequest seedSource;
 
     @AssertTrue(message = "New acquisition intake must use forSale=false; sale intent is set to KEEP by the service")
     public boolean isForSaleCompatibleWithNewAcquisition() {

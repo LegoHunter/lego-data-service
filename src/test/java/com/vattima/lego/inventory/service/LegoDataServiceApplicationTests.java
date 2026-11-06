@@ -9,6 +9,7 @@ import io.legohunter.data.dao.ItemInventoryDao;
 import io.legohunter.data.dao.ItemInventoryExternalCatalogItemDao;
 import io.legohunter.data.dao.ItemInventoryPhotoDao;
 import io.legohunter.data.dao.ItemInventorySaleIntentDao;
+import io.legohunter.data.dao.ItemInventorySeedSourceDao;
 import io.legohunter.data.dao.ItemInventoryStateDao;
 import io.legohunter.data.dao.MarketplaceListingDao;
 import io.legohunter.data.dao.MarketplaceListingSyncRequestDao;
@@ -71,6 +72,9 @@ class LegoDataServiceApplicationTests {
 
 	@MockitoBean
 	private ItemInventoryStateDao itemInventoryStateDao;
+
+	@MockitoBean
+	private ItemInventorySeedSourceDao itemInventorySeedSourceDao;
 
 	@MockitoBean
 	private MarketplaceListingDao marketplaceListingDao;
