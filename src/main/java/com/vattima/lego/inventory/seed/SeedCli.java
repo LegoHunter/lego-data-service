@@ -31,6 +31,8 @@ import java.util.stream.Collectors;
  * import --target=sandbox|dev --manifest=manifest.json
  *        [--dry-run] [--max-per-run=50] [--environment-ceiling=200] [--seed-run-id=UUID] [--base-url=URL]
  * status --target=sandbox|dev [--seed-run-id=UUID] [--base-url=URL]
+ * teardown --target=sandbox|dev (--seed-run-id=UUID | --all)
+ *        [--dry-run] [--wait-minutes=60] [--poll-seconds=60] [--base-url=URL]
  * </pre>
  *
  * <p>Launch it from the service jar with Spring Boot's PropertiesLauncher:
@@ -70,8 +72,9 @@ public final class SeedCli {
             case "export" -> export(arguments);
             case "import" -> importManifest(arguments);
             case "status" -> status(arguments);
+            case "teardown" -> teardown(arguments);
             default -> throw new IllegalArgumentException("Unknown command '" + arguments.command()
-                    + "': use export, import or status");
+                    + "': use export, import, status or teardown");
         };
     }
 
@@ -167,6 +170,46 @@ public final class SeedCli {
             }
         });
         return 0;
+    }
+
+    private int teardown(CliArguments arguments) throws InterruptedException {
+        arguments.allowOnly(Set.of("target", "seed-run-id", "all", "dry-run", "wait-minutes", "poll-seconds", "base-url"));
+        SeedTarget target = SeedTarget.parse(arguments.required("target"));
+        String seedRunId = arguments.optional("seed-run-id");
+        boolean all = arguments.flag("all");
+        if ((seedRunId == null) != all) {
+            throw new IllegalArgumentException("teardown needs exactly one of --seed-run-id=UUID or --all");
+        }
+        if (seedRunId != null) {
+            seedRunId = UUID.fromString(seedRunId).toString();
+        }
+        SeedTeardown.Options options = new SeedTeardown.Options(
+                arguments.flag("dry-run"),
+                Duration.ofMinutes(arguments.integer("wait-minutes", 60)),
+                Duration.ofSeconds(arguments.integer("poll-seconds", 60))
+        );
+        String baseUrl = baseUrl(arguments, target);
+        out.println((options.dryRun() ? "DRY RUN: " : "") + "Tearing down " + (all ? "every seeded item" : "seed run " + seedRunId)
+                + " in " + target.code() + " (" + baseUrl + ")");
+        if (!options.dryRun()) {
+            out.println("BrickLink lots are deleted by the ingress marketplace sync job; waiting up to "
+                    + options.maxWait().toMinutes() + " minutes for it.");
+        }
+
+        SeedTeardown.Report report = new SeedTeardown(client(baseUrl), clock, duration -> Thread.sleep(duration.toMillis()))
+                .run(seedRunId, options);
+
+        out.printf(Locale.ROOT, "%-8s %-8s %-13s %s%n", "source", "item", "outcome", "detail");
+        for (SeedTeardown.Row row : report.rows()) {
+            out.printf(Locale.ROOT, "%-8s %-8s %-13s %s%n", blank(row.sourceKey()), row.itemInventoryId(),
+                    row.outcome(), row.detail());
+        }
+        report.counts().forEach((outcome, count) -> {
+            if (count > 0) {
+                out.println(outcome + ": " + count);
+            }
+        });
+        return report.counts().get(SeedTeardown.Outcome.STUCK) > 0 ? 1 : 0;
     }
 
     private static Set<SeedBucket> buckets(CliArguments arguments) {

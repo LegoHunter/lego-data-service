@@ -112,6 +112,48 @@ public class HttpSeedServiceClient implements SeedServiceClient {
         return result;
     }
 
+    @Override
+    public TeardownCheckView teardownCheck(int itemInventoryId) {
+        return teardownCheckView(get("/api/v1/inventory/" + itemInventoryId + "/seed-teardown"), itemInventoryId);
+    }
+
+    @Override
+    public TeardownCheckView prepareTeardown(int itemInventoryId) {
+        JsonNode response = post("/api/v1/inventory/" + itemInventoryId + "/seed-teardown/prepare", java.util.Map.of());
+        return teardownCheckView(response.path("check"), itemInventoryId);
+    }
+
+    @Override
+    public java.util.Map<String, Integer> deleteSeededItem(int itemInventoryId) {
+        JsonNode response = send(HttpRequest.newBuilder(URI.create(baseUrl + "/api/v1/inventory/" + itemInventoryId + "/seed-teardown"))
+                .timeout(TIMEOUT)
+                .DELETE()
+                .build());
+        java.util.Map<String, Integer> deleted = new java.util.LinkedHashMap<>();
+        response.path("deletedRows").fields().forEachRemaining(entry -> deleted.put(entry.getKey(), entry.getValue().asInt()));
+        return deleted;
+    }
+
+    private static final java.util.List<String> OTHER_BLOCKERS = java.util.List.of(
+            "ebayItems", "photos", "imageAlbums", "orderItems", "orderTransactionLinks", "revenues", "shipments");
+
+    private static TeardownCheckView teardownCheckView(JsonNode check, int itemInventoryId) {
+        java.util.Map<String, Integer> other = new java.util.LinkedHashMap<>();
+        for (String field : OTHER_BLOCKERS) {
+            int count = check.path(field).asInt(0);
+            if (count > 0) {
+                other.put(field, count);
+            }
+        }
+        return new TeardownCheckView(
+                itemInventoryId,
+                check.path("seeded").asInt(0) > 0,
+                check.path("bricklinkLots").asInt(0),
+                check.path("activeSyncRequests").asInt(0),
+                other
+        );
+    }
+
     private JsonNode get(String path) {
         return send(HttpRequest.newBuilder(URI.create(baseUrl + path)).timeout(TIMEOUT).GET().build());
     }

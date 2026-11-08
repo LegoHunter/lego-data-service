@@ -24,6 +24,12 @@ class FakeSeedServiceClient implements SeedServiceClient {
     final List<AddItemInventoryRequest> acquisitions = new ArrayList<>();
     final List<MarketplaceListingDraftCreateRequest> drafts = new ArrayList<>();
     int failDraftsAfter = Integer.MAX_VALUE;
+    /** Teardown state per seeded item; an item missing here is clear (no lot, nothing active). */
+    final Map<Integer, TeardownCheckView> teardown = new HashMap<>();
+    /** What prepare does to an item's teardown state (default: nothing changes). */
+    final Map<Integer, java.util.function.UnaryOperator<TeardownCheckView>> onPrepare = new HashMap<>();
+    final List<Integer> prepared = new ArrayList<>();
+    final List<Integer> deleted = new ArrayList<>();
 
     private int nextItemId = 1000;
     private int nextListingId = 5000;
@@ -78,5 +84,40 @@ class FakeSeedServiceClient implements SeedServiceClient {
     @Override
     public List<SyncRequestView> findSyncRequests(int marketplaceListingId) {
         return syncRequests.getOrDefault(marketplaceListingId, List.of());
+    }
+
+    @Override
+    public TeardownCheckView teardownCheck(int itemInventoryId) {
+        if (!isSeeded(itemInventoryId)) {
+            return new TeardownCheckView(itemInventoryId, false, 0, 0, Map.of());
+        }
+        return teardown.getOrDefault(itemInventoryId, new TeardownCheckView(itemInventoryId, true, 0, 0, Map.of()));
+    }
+
+    @Override
+    public TeardownCheckView prepareTeardown(int itemInventoryId) {
+        if (!isSeeded(itemInventoryId)) {
+            throw new SeedServiceException("not a seeded item", 400);
+        }
+        prepared.add(itemInventoryId);
+        java.util.function.UnaryOperator<TeardownCheckView> change = onPrepare.get(itemInventoryId);
+        if (change != null) {
+            teardown.put(itemInventoryId, change.apply(teardownCheck(itemInventoryId)));
+        }
+        return teardownCheck(itemInventoryId);
+    }
+
+    @Override
+    public Map<String, Integer> deleteSeededItem(int itemInventoryId) {
+        if (!teardownCheck(itemInventoryId).clear()) {
+            throw new SeedServiceException("cannot be torn down", 400);
+        }
+        seedSources.removeIf(view -> view.itemInventoryId() == itemInventoryId);
+        deleted.add(itemInventoryId);
+        return Map.of("item_inventory", 1, "item_inventory_seed_source", 1);
+    }
+
+    private boolean isSeeded(int itemInventoryId) {
+        return seedSources.stream().anyMatch(view -> view.itemInventoryId() == itemInventoryId);
     }
 }
