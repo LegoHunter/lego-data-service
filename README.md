@@ -92,3 +92,38 @@ BrickLink color semantics:
 - Color-specific BrickLink item types require a positive `colorId` before a draft can become sync-ready.
 - The service applies this policy on both draft create/update and readiness evaluation, using the shared
   `lego-data` `BricklinkInventoryColorPolicy`.
+
+## Lower-environment seeding CLI (HOMELAB-40)
+
+`com.vattima.lego.inventory.seed.SeedCli` fills SANDBOX or DEV with realistic items copied from legacy
+PROD item data. It runs on a workstation, never in the cluster, and starts no Spring context.
+
+```shell
+JAR=target/lego-data-service-1.0.0-SNAPSHOT.jar
+SEED="java -Dloader.main=com.vattima.lego.inventory.seed.SeedCli -cp $JAR org.springframework.boot.loader.launch.PropertiesLauncher"
+
+# 1. Read legacy PROD (read-only option file you supply) into a reviewable manifest
+$SEED export --legacy-defaults-file=PATH/TO/legacy-ro.cnf --out=manifest.json [--buckets=USED,SEALED,NEW] [--limit=50] [--source-keys=..] [--item-numbers=..]
+# 2. Check, then create the items and drafts
+$SEED import --target=sandbox --manifest=manifest.json --dry-run
+$SEED import --target=sandbox --manifest=manifest.json
+# 3. Follow the pricing plane until each lot is VERIFIED
+$SEED status --target=sandbox --seed-run-id=UUID
+```
+
+- **What is copied:** item data only: catalog number, new/used, completeness, sealed, built once, box and
+  instructions grades, and cost. Listing and lot columns (remarks, price, stockroom, lot id, order, internal
+  comments, the legacy uuid and description) are never read. Selection: unsold `SET` rows with quantity 1.
+  Sealed items get item condition `SL` and default grades box `E` / instructions `M`. Unsealed items need
+  both grades, otherwise they are skipped and reported.
+- **What import does:** one acquisition transaction per run (seller party 209, buyer party 0, test box
+  900). Each item carries a `seedSource` (`LEGO_PROD_LEGACY` + legacy `bl_inventory_id`). Then an unpriced,
+  non-fixed BrickLink draft is created with sale intent `SELLABLE`. The tool never sends
+  `LISTING_CREATE`. The pricing plane applies the initial price and creates the stockroom lot.
+- **Guards:**
+  - Targets are `sandbox` and `dev` only; the service also refuses `seedSource` in PROD.
+  - At most 50 new items per run.
+  - A ceiling on seeded items per environment (`--environment-ceiling`, default 200).
+  - Items missing from the target's BrickLink catalog are reported and not sent.
+- **Re-runs:** import skips source items already seeded and creates any missing draft, so re-running a
+  manifest is safe and completes a run that stopped part way.
