@@ -109,6 +109,9 @@ $SEED import --target=sandbox --manifest=manifest.json --dry-run
 $SEED import --target=sandbox --manifest=manifest.json
 # 3. Follow the pricing plane until each lot is VERIFIED
 $SEED status --target=sandbox --seed-run-id=UUID
+# 4. Remove a run again: its BrickLink lots, then its local rows
+$SEED teardown --target=sandbox --seed-run-id=UUID --dry-run
+$SEED teardown --target=sandbox --seed-run-id=UUID [--wait-minutes=60] [--poll-seconds=60]   # or --all
 ```
 
 - **What is copied:** item data only: catalog number, new/used, completeness, sealed, built once, box and
@@ -127,3 +130,18 @@ $SEED status --target=sandbox --seed-run-id=UUID
   - Items missing from the target's BrickLink catalog are reported and not sent.
 - **Re-runs:** import skips source items already seeded and creates any missing draft, so re-running a
   manifest is safe and completes a run that stopped part way.
+- **Teardown:** only items with a seed-source row, never in PROD, and only through the service
+  (`/api/v1/inventory/{id}/seed-teardown`). Per item:
+  1. `prepare` cancels its PENDING sync requests, queues a `LISTING_DELETE` for each listing that holds a
+     BrickLink lot, and ends listings that hold none, so the pricing plane stops creating lots for them.
+  2. The ingress marketplace sync job deletes each lot. It refuses in PROD, and deletes only a stockroom lot
+     in this environment's stockroom whose system remarks block names this environment, listing and item.
+     It then reads the lot back and accepts only "not found".
+  3. When the service reports no lot and no active request, the item's local rows are deleted: listings,
+     pricing history, sync requests, catalog links, acquisition line and costs, seed source, the item, and
+     the acquisition transaction once its last item is gone.
+
+  Items that never got a lot go straight to step 3. An item with photos, orders, sales, shipments or an
+  eBay listing is reported `BLOCKED` and left alone. A lot that survives three `LISTING_DELETE` requests,
+  or anything still waiting at `--wait-minutes`, is reported `STUCK`; the command then exits 1, and running
+  it again picks up where it stopped.

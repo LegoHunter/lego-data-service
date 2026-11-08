@@ -18,6 +18,7 @@ import io.legohunter.data.dao.PaymentPlatformDao;
 import io.legohunter.data.dao.TransactionCostDao;
 import io.legohunter.data.dao.TransactionItemDao;
 import io.legohunter.data.dao.TransactionPlatformDao;
+import io.legohunter.data.dao.SeededItemTeardownDao;
 import io.legohunter.data.dao.TransactionsDao;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -99,6 +100,9 @@ class LegoDataServiceApplicationTests {
 
 	@MockitoBean
 	private TransactionsDao transactionsDao;
+
+	@MockitoBean
+	private SeededItemTeardownDao seededItemTeardownDao;
 
 	@Test
 	void contextLoads() {

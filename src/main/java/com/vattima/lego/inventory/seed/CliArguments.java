@@ -22,7 +22,7 @@ final class CliArguments {
 
     static CliArguments parse(String[] args) {
         if (args.length == 0) {
-            throw new IllegalArgumentException("A command is required: export, import or status");
+            throw new IllegalArgumentException("A command is required: export, import, status or teardown");
         }
         Map<String, String> options = new HashMap<>();
         for (String arg : Arrays.copyOfRange(args, 1, args.length)) {
