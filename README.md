@@ -3,7 +3,17 @@ Lego Data Operations API.
 
 ### Deploys to Kubernetes
 
-REST Service over lego-data
+REST Service over lego-data. The shared pipeline (lego-server-configuration
+`k8s-service-pipeline.yml`) deploys it per environment:
+
+| Environment | When | Namespace | URL | Database |
+| --- | --- | --- | --- | --- |
+| SANDBOX | push to `feature/**` | `services-sandbox` | https://lego-data-service.sandbox.internal.legohunter.io | `lego_sandbox` |
+| DEV | merge into `develop` (`DEPLOY_DEV_ENABLED=true`, HOMELAB-57) | `services-dev` | https://lego-data-service.dev.internal.legohunter.io | `lego_dev` |
+| PROD | release `develop` -> `main`, after approval | `services-prod` | https://lego-data-service.prod.internal.legohunter.io | `lego_prod` (HOMELAB-56) |
+
+Each environment reads only its own Infisical environment through `services-<env>-external-secret`,
+mounted at `/etc/.credentials`. This service imports only `database-configuration.yml`.
 
 ## Inventory Intake
 
