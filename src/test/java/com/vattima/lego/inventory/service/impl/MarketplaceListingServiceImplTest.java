@@ -42,6 +42,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -885,6 +886,66 @@ class MarketplaceListingServiceImplTest {
         when(bricklinkMarketplaceListingDao.insert(any(BricklinkMarketplaceListing.class))).thenReturn(persistedBricklink);
         when(bricklinkMarketplaceListingDao.findByMarketplaceListingId(101)).thenReturn(Optional.of(persistedBricklink));
         when(itemInventoryPhotoDao.findByItemInventoryId(202)).thenReturn(photos);
+    }
+
+    @Test
+    void retitlingAListingThatHasALotQueuesADescriptionUpdate() {
+        MarketplaceListing existing = listing(101, 202, new BigDecimal("63.98"), "ACTIVE");
+        stubUpdateInputs(inventory("SELLABLE", "AVAILABLE", true), existing, bricklinkDraft(569454187));
+        when(marketplaceListingSyncRequestDao.findByMarketplaceListingIdAndSyncRequestTypeCodeAndSyncRequestStatusCodes(
+                eq(101), eq("DESCRIPTION_UPDATE"), any())).thenReturn(Set.of());
+
+        service.updateDraft(101, MarketplaceListingDraftUpdateRequest.builder().title("Summer Cottage").build());
+
+        ArgumentCaptor<MarketplaceListingSyncRequest> captor = ArgumentCaptor.forClass(MarketplaceListingSyncRequest.class);
+        verify(marketplaceListingSyncRequestDao).insert(captor.capture());
+        MarketplaceListingSyncRequest queued = captor.getValue();
+        assertThat(queued.getSyncRequestTypeCode()).isEqualTo("DESCRIPTION_UPDATE");
+        assertThat(queued.getSyncRequestStatusCode()).isEqualTo("PENDING");
+        assertThat(queued.getSyncReasonCode()).isEqualTo("LISTING_TEXT_CHANGED");
+        assertThat(queued.getRemoteInventoryId()).isEqualTo("569454187");
+        assertThat(queued.getRemoteVisibilityContainerId()).isEqualTo("C");
+        assertThat(queued.getRequestedUnitPrice()).isNull();
+        assertThat(queued.getPricingDecisionId()).isNull();
+    }
+
+    @Test
+    void aTextEditQueuesNothingWithoutALotOrWhenTheLotTextDoesNotChange() {
+        // No lot yet: the text goes out with LISTING_CREATE.
+        MarketplaceListing draft = listing(101, 202, new BigDecimal("10.00"), "DRAFT");
+        stubUpdateInputs(inventory("SELLABLE", "AVAILABLE", true), draft, bricklinkDraft(null));
+        service.updateDraft(101, MarketplaceListingDraftUpdateRequest.builder().title("Main Street").build());
+
+        // A lot, but the edit leaves what it shows unchanged: a description already wins over the new title.
+        MarketplaceListing described = listing(101, 202, new BigDecimal("10.00"), "ACTIVE");
+        described.setTitle("Main Street");
+        described.setDescription("Complete with box");
+        stubUpdateInputs(inventory("SELLABLE", "AVAILABLE", true), described, bricklinkDraft(12345));
+        service.updateDraft(101, MarketplaceListingDraftUpdateRequest.builder().title("Main Street (6390)").unitPrice(new BigDecimal("12.00")).build());
+
+        verify(marketplaceListingSyncRequestDao, never()).insert(any());
+    }
+
+    @Test
+    void aPendingDescriptionUpdateAlreadyCoversANewerEdit() {
+        MarketplaceListing existing = listing(101, 202, new BigDecimal("63.98"), "ACTIVE");
+        stubUpdateInputs(inventory("SELLABLE", "AVAILABLE", true), existing, bricklinkDraft(569454187));
+        when(marketplaceListingSyncRequestDao.findByMarketplaceListingIdAndSyncRequestTypeCodeAndSyncRequestStatusCodes(
+                eq(101), eq("DESCRIPTION_UPDATE"), any())).thenReturn(Set.of(MarketplaceListingSyncRequest.builder()
+                .marketplaceListingSyncRequestId(700L).syncRequestStatusCode("PENDING").build()));
+
+        service.updateDraft(101, MarketplaceListingDraftUpdateRequest.builder().title("Summer Cottage").build());
+
+        verify(marketplaceListingSyncRequestDao, never()).insert(any());
+    }
+
+    @Test
+    void theLotDescriptionIsTheListingDescriptionOrElseItsTitle() {
+        MarketplaceListing listing = MarketplaceListing.builder().title(" Main Street ").build();
+        assertThat(MarketplaceListingServiceImpl.lotDescription(listing)).isEqualTo("Main Street");
+        listing.setDescription(" Complete with box ");
+        assertThat(MarketplaceListingServiceImpl.lotDescription(listing)).isEqualTo("Complete with box");
+        assertThat(MarketplaceListingServiceImpl.lotDescription(MarketplaceListing.builder().title(" ").build())).isNull();
     }
 
     private void stubUpdateInputs(ItemInventory inventory, MarketplaceListing existing, BricklinkMarketplaceListing stored) {
