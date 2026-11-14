@@ -973,8 +973,55 @@ class MarketplaceListingServiceImplTest {
                         .externalCatalogItemId(303)
                         .externalServiceId(2)
                         .externalItemKey("6390-1")
+                        .itemName("Main Street")
                         .itemTypeCode("S")
                         .build())
                 .build();
+    }
+
+    @Test
+    void createDraftDefaultsTheTitleToTheCatalogItemName() {
+        ItemInventory inventory = inventory("SELLABLE", "AVAILABLE", true);
+        MarketplaceListing persistedListing = listing(101, inventory.getItemInventoryId(), new BigDecimal("10.00"), "DRAFT");
+        stubCreateInputs(inventory, Set.of(), persistedListing, bricklinkDraft(null));
+
+        // The lower-environment seeder sends no title.
+        service.createDraft(MarketplaceListingDraftCreateRequest.builder()
+                .itemInventoryId(202)
+                .marketplaceCode("BRICKLINK")
+                .currencyCode("USD")
+                .build());
+
+        ArgumentCaptor<MarketplaceListing> listingCaptor = ArgumentCaptor.forClass(MarketplaceListing.class);
+        verify(marketplaceListingDao).insert(listingCaptor.capture());
+        assertThat(listingCaptor.getValue().getTitle()).isEqualTo("Main Street");
+    }
+
+    @Test
+    void createDraftKeepsAnExplicitTitle() {
+        ItemInventory inventory = inventory("SELLABLE", "AVAILABLE", true);
+        MarketplaceListing persistedListing = listing(101, inventory.getItemInventoryId(), new BigDecimal("10.00"), "DRAFT");
+        stubCreateInputs(inventory, Set.of(), persistedListing, bricklinkDraft(null));
+
+        service.createDraft(MarketplaceListingDraftCreateRequest.builder()
+                .itemInventoryId(202)
+                .marketplaceCode("BRICKLINK")
+                .currencyCode("USD")
+                .title("Main Street, complete with box")
+                .build());
+
+        ArgumentCaptor<MarketplaceListing> listingCaptor = ArgumentCaptor.forClass(MarketplaceListing.class);
+        verify(marketplaceListingDao).insert(listingCaptor.capture());
+        assertThat(listingCaptor.getValue().getTitle()).isEqualTo("Main Street, complete with box");
+    }
+
+    @Test
+    void draftTitleIsNullWhenNeitherRequestNorCatalogHasOne() {
+        ItemInventoryExternalCatalogItem link = ItemInventoryExternalCatalogItem.builder()
+                .externalCatalogItem(ExternalCatalogItem.builder().itemName("  ").build())
+                .build();
+
+        assertThat(MarketplaceListingServiceImpl.draftTitle(" ", link)).isNull();
+        assertThat(MarketplaceListingServiceImpl.draftTitle(null, ItemInventoryExternalCatalogItem.builder().build())).isNull();
     }
 }

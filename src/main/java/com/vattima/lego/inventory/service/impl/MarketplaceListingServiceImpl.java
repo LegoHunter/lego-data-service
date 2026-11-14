@@ -99,7 +99,7 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
                 .listingExternalServiceId(marketplace.getExternalServiceId())
                 .externalCatalogItemId(catalogLink.getExternalCatalogItemId())
                 .listingStatusCode(LISTING_STATUS_DRAFT)
-                .title(request.getTitle())
+                .title(draftTitle(request.getTitle(), catalogLink))
                 .description(request.getDescription())
                 .privateNotes(request.getPrivateNotes())
                 .unitPrice(request.getUnitPrice())
@@ -115,6 +115,21 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
                 )
         );
         return toResponse(persistedListing, persistedBricklink);
+    }
+
+    /**
+     * The draft's title: the caller's title when given, otherwise the catalog item's name. This is the same
+     * rule the legacy listing migration uses, so every listing gets a title (HOMELAB-40). BrickLink shows the
+     * title as the lot description when the listing has no description of its own.
+     */
+    static String draftTitle(String requestedTitle, ItemInventoryExternalCatalogItem catalogLink) {
+        if (requestedTitle != null && !requestedTitle.isBlank()) {
+            return requestedTitle;
+        }
+        String itemName = catalogLink.getExternalCatalogItem() == null
+                ? null
+                : catalogLink.getExternalCatalogItem().getItemName();
+        return itemName == null || itemName.isBlank() ? null : itemName.trim();
     }
 
     @Override
