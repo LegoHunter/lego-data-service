@@ -29,6 +29,7 @@ import io.legohunter.data.dto.ItemInventoryExternalCatalogItem;
 import io.legohunter.data.dto.MarketplaceListingSyncRequest;
 import io.legohunter.data.dto.MarketplaceListing;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +40,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -46,6 +48,7 @@ import java.util.stream.Collectors;
 
 import static io.legohunter.data.dto.ExternalService.Service.BRICKLINK;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class MarketplaceListingServiceImpl implements MarketplaceListingService {
@@ -54,6 +57,9 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
     private static final String SYNC_REQUEST_TYPE_LISTING_CREATE = "LISTING_CREATE";
     private static final String SYNC_REQUEST_STATUS_PENDING = "PENDING";
     private static final String SYNC_REQUEST_STATUS_CLAIMED = "CLAIMED";
+    /** Sent by lego-data-ingress's marketplace sync: push the listing's text to its lot's Description (HOMELAB-80). */
+    static final String SYNC_REQUEST_TYPE_DESCRIPTION_UPDATE = "DESCRIPTION_UPDATE";
+    static final String SYNC_REASON_LISTING_TEXT_CHANGED = "LISTING_TEXT_CHANGED";
     private static final String SYNC_REQUEST_STATUS_CANCELLED = "CANCELLED";
     private static final String SYNC_REASON_MANUAL_LISTING_CREATE = "MANUAL_LISTING_CREATE";
     private static final String CREATED_BY_SERVICE = "LegoDataServiceMarketplaceListingSyncRequest";
@@ -157,6 +163,7 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
         ItemInventory itemInventory = requireInventory(listing.getItemInventoryId());
         Set<ItemInventoryExternalCatalogItem> catalogLinks = itemInventoryExternalCatalogItemDao
                 .findByItemInventoryId(itemInventory.getItemInventoryId());
+        String lotDescriptionBefore = lotDescription(listing);
 
         if (request.getExternalCatalogItemId() != null) {
             ItemInventoryExternalCatalogItem catalogLink = validator
@@ -200,7 +207,55 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
         BricklinkMarketplaceListing persistedBricklink = existingBricklink.isPresent()
                 ? bricklinkMarketplaceListingDao.update(bricklink)
                 : bricklinkMarketplaceListingDao.insert(bricklink);
+        queueDescriptionUpdateIfChanged(persistedListing, persistedBricklink, lotDescriptionBefore);
         return toResponse(persistedListing, persistedBricklink);
+    }
+
+    /**
+     * The text a listing's BrickLink lot shows as its Description: its description, otherwise its title. The same
+     * rule as lego-data-ingress's BricklinkLotDescription, which creates and updates the lot.
+     */
+    static String lotDescription(MarketplaceListing listing) {
+        if (listing.getDescription() != null && !listing.getDescription().isBlank()) {
+            return listing.getDescription().trim();
+        }
+        return listing.getTitle() == null || listing.getTitle().isBlank() ? null : listing.getTitle().trim();
+    }
+
+    /**
+     * When an edit changes what the listing's existing lot should show, queues a DESCRIPTION_UPDATE for marketplace
+     * sync (HOMELAB-80). A listing without a lot gets its text when the lot is created, so it needs nothing. The
+     * request carries no text: sync reads the listing when it runs, so a PENDING one already covers a newer edit.
+     */
+    private void queueDescriptionUpdateIfChanged(
+            MarketplaceListing listing,
+            BricklinkMarketplaceListing bricklinkListing,
+            String lotDescriptionBefore
+    ) {
+        String lotDescriptionAfter = lotDescription(listing);
+        if (bricklinkListing == null || bricklinkListing.getBricklinkInventoryId() == null
+                || lotDescriptionAfter == null || Objects.equals(lotDescriptionBefore, lotDescriptionAfter)) {
+            return;
+        }
+        boolean alreadyPending = !marketplaceListingSyncRequestDao
+                .findByMarketplaceListingIdAndSyncRequestTypeCodeAndSyncRequestStatusCodes(
+                        listing.getMarketplaceListingId(),
+                        SYNC_REQUEST_TYPE_DESCRIPTION_UPDATE,
+                        Set.of(SYNC_REQUEST_STATUS_PENDING)
+                ).isEmpty();
+        if (alreadyPending) {
+            return;
+        }
+        MarketplaceListingSyncRequest descriptionUpdate = syncRequestCandidate(
+                listing,
+                MarketplaceListingSyncRequestCreateRequest.builder().syncReasonCode(SYNC_REASON_LISTING_TEXT_CHANGED).build(),
+                SYNC_REQUEST_TYPE_DESCRIPTION_UPDATE,
+                bricklinkListing
+        );
+        descriptionUpdate.setRequestedUnitPrice(null);
+        marketplaceListingSyncRequestDao.insert(descriptionUpdate);
+        log.info("marketplace_listing.description_update_queued marketplaceListingId={} bricklinkInventoryId={}",
+                listing.getMarketplaceListingId(), bricklinkListing.getBricklinkInventoryId());
     }
 
     @Override

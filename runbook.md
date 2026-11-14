@@ -334,10 +334,17 @@ validates it during remote synchronization. `privateNotes` remain local operator
 and are not sent to BrickLink.
 
 Before the first remote create, PATCH changes are included in the `LISTING_CREATE`
-payload. After a listing is `ACTIVE` and has a BrickLink inventory ID, PATCH still
-changes local state but does not enqueue a remote metadata update. The current
-`PRICE_UPDATE` path updates price and preserves/repairs managed system remarks; it does
-not copy local description, title, private notes, or newly edited human remarks. Do not
+payload. A draft's title defaults to the BrickLink catalog item name when the create
+request gives none.
+
+After the listing has a BrickLink inventory ID, a PATCH that changes what its lot should
+show as **Description** (the listing `description`, or else its `title`) queues a
+`DESCRIPTION_UPDATE` sync request (HOMELAB-80; reason `LISTING_TEXT_CHANGED`). The
+ingress marketplace sync worker then writes only the lot's Description and reads it back.
+Nothing is queued when the edit leaves that text unchanged, or when a `PENDING`
+`DESCRIPTION_UPDATE` already exists (it reads the listing when it runs, so it covers the
+newer edit). Price, private notes and human remarks are still not copied by a PATCH; the
+`PRICE_UPDATE` path updates price and preserves/repairs the managed system remarks. Do not
 change an active listing back to `DRAFT` to force `LISTING_CREATE`.
 
 ## 8. Readiness contract and status names
