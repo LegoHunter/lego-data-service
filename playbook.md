@@ -209,21 +209,16 @@ The current implemented name is `INITIAL_PRICE_PENDING`; the discussed alternati
 
 ## Step 6A: Let the Pricing Plane calculate the initial price
 
-No service POST is needed after the unpriced draft is created. Ingress performs the
-scheduled sequence:
+No service POST is needed after the unpriced draft is created. The scheduled sequence is:
 
 ```text
-pricing_crawl_work_item
-    -> pricing_snapshot + pricing_snapshot_listing
-    -> pricing_decision
-    -> pricing_apply_readiness (READY_TO_APPLY_INITIAL_PRICE)
-    -> marketplace_listing.unit_price update
-    -> LISTING_CREATE sync request
+marketplace_pricing.market_snapshot (+ market_listing)   written by the pricing crawler
+    -> pricing_decision                                  Reprice: decide, guard, record
+    -> marketplace_listing.unit_price update             APPLY mode only, same transaction
+    -> LISTING_CREATE sync request                       reason INITIAL_PRICE_APPLIED
 ```
 
-The key distinction is that `pricing_crawl_work_item.work_status_code=SUCCEEDED`
-means the BrickLink source crawl succeeded. It does not mean that a price was decided,
-applied, or sent to BrickLink.
+In `DRY_RUN` mode Reprice stops at a `PROPOSED` decision and changes nothing.
 
 Trace the listing with:
 
@@ -233,35 +228,16 @@ select marketplace_listing_id, listing_status_code, unit_price, fixed_price,
 from marketplace_listing
 where marketplace_listing_id = <marketplace-listing-id>;
 
-select pricing_crawl_work_item_id, work_status_code, next_attempt_at,
-       last_error_message
-from pricing_crawl_work_item
-where marketplace_listing_id = <marketplace-listing-id>
-order by pricing_crawl_work_item_id desc;
-
-select pricing_snapshot_id, comparable_count, captured_at
-from pricing_snapshot
-where marketplace_listing_id = <marketplace-listing-id>
-order by pricing_snapshot_id desc;
-
 select pricing_decision_id, decision_status_code, reason_code,
+       guard_status_code, guard_reason_code, market_snapshot_captured_at,
        computed_price, final_price, comparable_count, confidence, applied_at
 from pricing_decision
 where marketplace_listing_id = <marketplace-listing-id>
 order by pricing_decision_id desc;
-
-select pricing_apply_readiness_id, readiness_status_code, block_reason_code,
-       current_price, proposed_price, delta_amount, delta_percent,
-       comparable_count, confidence
-from pricing_apply_readiness
-where marketplace_listing_id = <marketplace-listing-id>
-order by pricing_apply_readiness_id desc;
 ```
 
-For an initial price, expect null current/delta values and a positive proposed price.
-The ingress apply worker rechecks that the local listing is still an unpriced DRAFT with
-no remote ID. If an operator changes it first, the algorithmic decision is stale and
-must not overwrite the operator's state.
+A `BLOCKED` decision names its guard reason; `FAILED` means no price could be decided
+(no current market snapshot, no comparables, or missing item data).
 
 ## Step 6B: Create a manually priced listing request
 
@@ -354,10 +330,10 @@ remarks, not arbitrary local metadata.
 2. Check the primary BrickLink catalog link and selected catalog ID.
 3. Check that exactly one open local listing exists.
 4. Check price/fixed state and interpret `INITIAL_PRICE_PENDING` correctly.
-5. Check the latest crawl, snapshot, decision, and readiness rows.
+5. Check the latest `pricing_decision` row: its status and guard reason.
 6. Check `marketplace_listing_sync_request` for `PENDING`, `CLAIMED`, `BLOCKED`, or
    `FAILED` and its `last_error_message`.
-7. Check ingress configuration (`APPLY_LOCAL_AND_ENQUEUE_SYNC` and marketplace-sync
-   `APPLY` in sandbox) and scheduled-job logs.
+7. Check ingress configuration (`lego.pricing.reprice.mode`: `APPLY` in SANDBOX, `DRY_RUN`
+   in DEV; marketplace-sync `APPLY` in SANDBOX) and the Reprice job logs.
 8. If remote creation may have succeeded, inspect the stored remote ID and BrickLink
    account before retrying.

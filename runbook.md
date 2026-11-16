@@ -30,9 +30,9 @@ local marketplace_listing DRAFT
         |
         +--> non-fixed, unitPrice = null
                 |
-                +--> lego-data-ingress Pricing Plane
-                        crawl -> snapshot -> decision -> apply-readiness
-                        -> local price apply -> LISTING_CREATE sync request
+                +--> lego-data-ingress Reprice
+                        market_snapshot -> decision + guard
+                        -> local price (APPLY mode) -> LISTING_CREATE sync request
                         -> BrickLink create -> local ACTIVE
 ```
 
@@ -432,28 +432,28 @@ For a non-fixed draft created with `unitPrice=null`:
 
 1. The service reports `INITIAL_PRICE_PENDING` and manual sync-request creation remains
    blocked.
-2. Ingress schedules or claims a `pricing_crawl_work_item` and calls BrickLink AJAX
-   catalog/pricing endpoints.
-3. Ingress persists `pricing_snapshot` and `pricing_snapshot_listing` rows.
-4. The decision job writes a `pricing_decision`. A positive algorithmic price is stored
-   in `final_price`; a `SUCCEEDED` crawl alone does not calculate or apply a price.
-5. Apply-readiness writes `READY_TO_APPLY_INITIAL_PRICE` when the latest proposed
-   decision meets the initial-price confidence/comparable/reason gates. There is no
-   current-price delta baseline on this path.
-6. Apply mode defensively rechecks that the row is still an unpriced local `DRAFT` with
-   no remote inventory. It writes `marketplace_listing.unit_price` and queues
-   `LISTING_CREATE` with a positive requested price and reason
-   `INITIAL_PRICE_APPLIED`.
-7. Ingress marketplace sync creates the BrickLink inventory and, after a safe read-back,
+2. The marketplace pricing crawler records the item's market in the shared
+   `marketplace_pricing` schema (`market_snapshot` + `market_listing`).
+3. Ingress's Reprice job decides a price from the latest matching `market_snapshot`,
+   runs its guard and writes one `pricing_decision`, with the guard outcome in
+   `guard_status_code` / `guard_reason_code`.
+4. In `APPLY` mode a decision that passes the guard is `ACCEPTED`: Reprice writes
+   `marketplace_listing.unit_price` and queues `LISTING_CREATE` with reason
+   `INITIAL_PRICE_APPLIED`, in the same transaction. In `DRY_RUN` the decision stays
+   `PROPOSED` and nothing changes.
+5. Ingress marketplace sync creates the BrickLink inventory and, after a safe read-back,
    changes the local listing to `ACTIVE`.
 
-If an operator manually prices or publishes the draft before step 6, the initial-price
-apply guard treats the decision as stale and must not overwrite the operator's change.
+If an operator prices the draft first, it is no longer an unpriced draft and Reprice
+treats it as an ordinary priced listing.
 
-For an already priced, active listing, the normal path is a `PROPOSED` decision,
-`READY_TO_APPLY`, local price update, and `PRICE_UPDATE` sync request. For
-`fixedPrice=true`, the decision is recorded as `SKIPPED / FIXED_PRICE_OVERRIDE` and
-does not replace the operator's price.
+For an already priced, active listing, an accepted decision queues a `PRICE_UPDATE`; the
+local price changes only when BrickLink confirms it. For `fixedPrice=true`, the decision
+is recorded as `SKIPPED` and does not replace the operator's price.
+
+The old per-environment crawl, decision, apply-readiness and apply jobs, and their
+tables (`pricing_crawl_work_item`, `pricing_snapshot`, `pricing_snapshot_listing`,
+`pricing_apply_readiness`), were removed in HOMELAB-66/67 (deployer changeset 2.4.0).
 
 ## 11. Database checks for a stuck listing
 
@@ -473,31 +473,14 @@ where marketplace_listing_id = <marketplace_listing_id>;
 ```
 
 ```sql
-select pricing_crawl_work_item_id,
-       marketplace_listing_id,
-       work_status_code,
-       attempt_count,
-       next_attempt_at,
-       last_error_message
-from pricing_crawl_work_item
-where marketplace_listing_id = <marketplace_listing_id>
-order by pricing_crawl_work_item_id desc;
-
-select pricing_snapshot_id,
-       marketplace_listing_id,
-       item_condition_code,
-       completeness_code,
-       comparable_count,
-       captured_at
-from pricing_snapshot
-where marketplace_listing_id = <marketplace_listing_id>
-order by pricing_snapshot_id desc;
-
 select pricing_decision_id,
        marketplace_listing_id,
-       pricing_snapshot_id,
+       market_snapshot_id,
+       market_snapshot_captured_at,
        decision_status_code,
        reason_code,
+       guard_status_code,
+       guard_reason_code,
        computed_price,
        final_price,
        comparable_count,
@@ -506,32 +489,19 @@ select pricing_decision_id,
 from pricing_decision
 where marketplace_listing_id = <marketplace_listing_id>
 order by pricing_decision_id desc;
-
-select pricing_apply_readiness_id,
-       marketplace_listing_id,
-       pricing_decision_id,
-       readiness_status_code,
-       block_reason_code,
-       current_price,
-       proposed_price,
-       delta_amount,
-       delta_percent,
-       comparable_count,
-       confidence
-from pricing_apply_readiness
-where marketplace_listing_id = <marketplace_listing_id>
-order by pricing_apply_readiness_id desc;
 ```
 
 Interpret the states in order:
 
 ```text
-SUCCEEDED crawl = source data was captured; it does not imply a price was applied
-PROPOSED decision = a recommendation exists; it is not yet local truth
-READY_TO_APPLY* = the recommendation passed apply gates; it is still not applied
-marketplace_listing.unit_price changed = local price apply occurred
+no decision         = no current market snapshot yet, or a change is already in flight
+FAILED decision     = no price could be decided (no snapshot, no comparables, missing item data)
+BLOCKED decision    = the guard said no; guard_reason_code says why
+PROPOSED decision   = the guard passed, but Reprice runs in DRY_RUN
+ACCEPTED decision   = a sync request was queued
 PENDING sync request = remote work is queued
 SUCCEEDED sync request + ACTIVE listing = remote create/update completed and passed read-back safety
+APPLIED decision    = the marketplace confirmed the price
 ```
 
 For the outbound queue:
@@ -560,8 +530,8 @@ order by marketplace_listing_sync_request_id desc;
 | --- | --- | --- |
 | Structured business error says the item has no BrickLink catalog link | The requested catalog ID is not linked to this item, or no primary link exists. | Query the mapping, repair it, then recreate/readiness-check the draft. |
 | `Column 'unit_price' cannot be null` from `POST /marketplace-listings` | The runtime schema is still `NOT NULL`; this is not a valid reason to seed a fake price. | Apply the database migration/deployer change and verify `is_nullable=YES`. |
-| `INITIAL_PRICE_PENDING` | Expected for a non-fixed unpriced local DRAFT. | Let ingress crawl, decide, pass readiness, apply, and enqueue create. |
-| Crawl work is `SUCCEEDED` but listing price is unchanged | Crawl captured market data only. | Inspect snapshot, decision, readiness, apply mode, and sync queue separately. |
+| `INITIAL_PRICE_PENDING` | Expected for a non-fixed unpriced local DRAFT. | Let ingress Reprice decide from a current market snapshot; in APPLY mode it sets the price and enqueues the create. |
+| A market snapshot exists but the listing price is unchanged | Market data alone does not price anything. | Inspect the latest `pricing_decision` (status and guard reason), the Reprice mode, and the sync queue separately. |
 | Body-less sync POST returned HTTP 500 in an older deployment | A null-safe logging defect could have happened after the database transaction committed. | Query the listing and sync-request row before retrying; do not blindly create a duplicate request. |
 | Description/My Remarks PATCH appears successful but BrickLink is unchanged | Current PATCH is local-only for an `ACTIVE` listing. | Use it before first create if metadata must be included. An active-listing metadata sync type is not currently implemented. |
 | POST is expected to handle several inventory IDs | The endpoint is one-listing-at-a-time. | Iterate one listing ID per preview/POST and enforce per-item safety. |
