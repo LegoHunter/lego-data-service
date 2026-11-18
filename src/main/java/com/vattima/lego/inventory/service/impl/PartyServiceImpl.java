@@ -6,6 +6,7 @@ import com.vattima.lego.inventory.service.dto.PartyCreateRequest;
 import com.vattima.lego.inventory.service.dto.PartyExternalIdentityRequest;
 import com.vattima.lego.inventory.service.dto.PartyExternalIdentityResponse;
 import com.vattima.lego.inventory.service.dto.PartyResponse;
+import com.vattima.lego.inventory.service.dto.PartyUpdateRequest;
 import com.vattima.lego.inventory.service.exception.DuplicatePartyException;
 import com.vattima.lego.inventory.service.exception.NotFoundException;
 import com.vattima.lego.inventory.service.exception.ValidationException;
@@ -91,7 +92,7 @@ public class PartyServiceImpl implements PartyService {
         }
         List<PartyExternalIdentity> identities = identities(request.getExternalIdentities());
 
-        List<ApiValidationError> matches = duplicates(party, identities, allowDuplicateName);
+        List<ApiValidationError> matches = duplicates(party, identities, !allowDuplicateName);
         if (!matches.isEmpty()) {
             throw new DuplicatePartyException(matches);
         }
@@ -102,6 +103,67 @@ public class PartyServiceImpl implements PartyService {
             partyExternalIdentityDao.insert(identity);
         });
         return toResponse(party, platformNamesById());
+    }
+
+    @Override
+    @Transactional
+    public PartyResponse update(Long partyId, PartyUpdateRequest request, boolean allowDuplicateName) {
+        Party existing = partyDao.findPartyById(partyId)
+                .orElseThrow(() -> new NotFoundException("Party [%s] was not found".formatted(partyId)));
+        Party party = Party.builder()
+                .partyId(partyId)
+                .partyType(request.getPartyType() == null ? existing.getPartyType() : request.getPartyType())
+                .partyFirstName(trimToNull(request.getPartyFirstName()))
+                .partyMiddleInitial(trimToNull(request.getPartyMiddleInitial()))
+                .partyLastName(trimToNull(request.getPartyLastName()))
+                .partyAddress1(trimToNull(request.getPartyAddress1()))
+                .partyAddress2(trimToNull(request.getPartyAddress2()))
+                .partyCity(trimToNull(request.getPartyCity()))
+                .partyState(trimToNull(request.getPartyState()))
+                .partyPostalCode(trimToNull(request.getPartyPostalCode()))
+                .partyCountryCode(trimToNull(request.getPartyCountryCode()))
+                .partyCountry(trimToNull(request.getPartyCountry()))
+                .partyPhone(trimToNull(request.getPartyPhone()))
+                .partyEmail(trimToNull(request.getPartyEmail()))
+                .partyActivationDate(existing.getPartyActivationDate())
+                .build();
+        if (party.getPartyFirstName() == null && party.getPartyLastName() == null) {
+            throw new ValidationException("partyFirstName or partyLastName is required");
+        }
+        boolean replaceIdentities = request.getExternalIdentities() != null;
+        List<PartyExternalIdentity> identities = identities(request.getExternalIdentities());
+
+        boolean nameChanged = !sameText(existing.getPartyFirstName(), party.getPartyFirstName())
+                || !sameText(existing.getPartyLastName(), party.getPartyLastName());
+        List<ApiValidationError> matches = duplicates(party, identities, nameChanged && !allowDuplicateName);
+        if (!matches.isEmpty()) {
+            throw new DuplicatePartyException(matches);
+        }
+
+        partyDao.update(party);
+        if (replaceIdentities) {
+            replaceIdentities(partyId, identities);
+        }
+        return toResponse(party, platformNamesById());
+    }
+
+    /** Makes the party's identities exactly {@code wanted}: removes the others, adds the missing ones. */
+    private void replaceIdentities(Long partyId, List<PartyExternalIdentity> wanted) {
+        List<PartyExternalIdentity> current = partyExternalIdentityDao.findByPartyId(partyId);
+        current.stream()
+                .filter(identity -> wanted.stream().noneMatch(other -> sameIdentity(identity, other)))
+                .forEach(identity -> partyExternalIdentityDao.delete(identity.getPartyExternalIdentityId()));
+        wanted.stream()
+                .filter(identity -> current.stream().noneMatch(other -> sameIdentity(identity, other)))
+                .forEach(identity -> {
+                    identity.setPartyId(partyId);
+                    partyExternalIdentityDao.insert(identity);
+                });
+    }
+
+    private static boolean sameIdentity(PartyExternalIdentity one, PartyExternalIdentity other) {
+        return one.getTransactionPlatformId().equals(other.getTransactionPlatformId())
+                && one.getExternalPartyId().equalsIgnoreCase(other.getExternalPartyId());
     }
 
     private List<PartyExternalIdentity> identities(List<PartyExternalIdentityRequest> requests) {
@@ -123,32 +185,48 @@ public class PartyServiceImpl implements PartyService {
         return identities;
     }
 
+    /**
+     * The other parties this one would duplicate. A party never matches itself, so for an update the party's
+     * own row and its own identities are skipped ({@code party.getPartyId()} is null for a new party).
+     */
     private List<ApiValidationError> duplicates(
             Party party,
             List<PartyExternalIdentity> identities,
-            boolean allowDuplicateName
+            boolean checkName
     ) {
         List<ApiValidationError> matches = new ArrayList<>();
-        partyDao.findByEmail(party.getPartyEmail()).forEach(existing -> matches.add(duplicate(
-                "partyEmail",
-                "Party [%s] already has this email".formatted(existing.getPartyId())
-        )));
+        partyDao.findByEmail(party.getPartyEmail()).stream()
+                .filter(existing -> isOther(existing.getPartyId(), party))
+                .forEach(existing -> matches.add(duplicate(
+                        "partyEmail",
+                        "Party [%s] already has this email".formatted(existing.getPartyId())
+                )));
         identities.forEach(identity -> partyExternalIdentityDao
                 .findByPlatformAndExternalPartyId(identity.getTransactionPlatformId(), identity.getExternalPartyId())
+                .filter(existing -> isOther(existing.getPartyId(), party))
                 .ifPresent(existing -> matches.add(duplicate(
                         "externalIdentities",
                         "Party [%s] already has the external identity [%s]"
                                 .formatted(existing.getPartyId(), identity.getExternalPartyId())
                 ))));
-        if (!allowDuplicateName) {
-            partyDao.findByName(party.getPartyFirstName(), party.getPartyLastName()).forEach(existing -> matches.add(
-                    duplicate(
+        if (checkName) {
+            partyDao.findByName(party.getPartyFirstName(), party.getPartyLastName()).stream()
+                    .filter(existing -> isOther(existing.getPartyId(), party))
+                    .forEach(existing -> matches.add(duplicate(
                             "partyName",
-                            "Party [%s] already has this name; send allowDuplicateName=true to add another"
+                            "Party [%s] already has this name; send allowDuplicateName=true to allow it"
                                     .formatted(existing.getPartyId())
                     )));
         }
         return matches;
+    }
+
+    private static boolean isOther(Long existingPartyId, Party party) {
+        return party.getPartyId() == null || !party.getPartyId().equals(existingPartyId);
+    }
+
+    private static boolean sameText(String one, String other) {
+        return (one == null ? "" : one.trim()).equalsIgnoreCase(other == null ? "" : other.trim());
     }
 
     private ApiValidationError duplicate(String field, String message) {

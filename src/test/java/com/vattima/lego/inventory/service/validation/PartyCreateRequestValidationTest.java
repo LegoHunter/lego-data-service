@@ -2,6 +2,7 @@ package com.vattima.lego.inventory.service.validation;
 
 import com.vattima.lego.inventory.service.dto.PartyCreateRequest;
 import com.vattima.lego.inventory.service.dto.PartyExternalIdentityRequest;
+import com.vattima.lego.inventory.service.dto.PartyUpdateRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -91,6 +92,18 @@ class PartyCreateRequestValidationTest {
         assertThat(fields(request)).containsExactlyInAnyOrder(
                 "externalIdentities[0].transactionPlatformName",
                 "externalIdentities[0].externalPartyId");
+    }
+
+    @Test
+    void anUpdateMayLeaveTheTypeOutButNotSendAnUnknownOne() {
+        assertThat(validator.validate(PartyUpdateRequest.builder().partyLastName("Smith").build())).isEmpty();
+        assertThat(validator.validate(PartyUpdateRequest.builder().partyType("X").partyLastName("Smith").build()))
+                .singleElement()
+                .satisfies(violation -> assertThat(violation.getPropertyPath().toString()).isEqualTo("partyType"));
+        assertThat(validator.validate(PartyUpdateRequest.builder().partyType("C").build()))
+                .singleElement()
+                .satisfies(violation -> assertThat(violation.getMessage())
+                        .isEqualTo("partyFirstName or partyLastName is required"));
     }
 
     private static List<String> fields(PartyCreateRequest request) {

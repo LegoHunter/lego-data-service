@@ -4,6 +4,7 @@ import com.vattima.lego.inventory.service.dto.ApiValidationError;
 import com.vattima.lego.inventory.service.dto.PartyCreateRequest;
 import com.vattima.lego.inventory.service.dto.PartyExternalIdentityRequest;
 import com.vattima.lego.inventory.service.dto.PartyResponse;
+import com.vattima.lego.inventory.service.dto.PartyUpdateRequest;
 import com.vattima.lego.inventory.service.exception.DuplicatePartyException;
 import com.vattima.lego.inventory.service.exception.NotFoundException;
 import com.vattima.lego.inventory.service.exception.ValidationException;
@@ -192,9 +193,9 @@ class PartyServiceImplTest {
                                     tuple("externalIdentities",
                                             "Party [13] already has the external identity [annbricks]"),
                                     tuple("partyName",
-                                            "Party [12] already has this name; send allowDuplicateName=true to add another"),
+                                            "Party [12] already has this name; send allowDuplicateName=true to allow it"),
                                     tuple("partyName",
-                                            "Party [40] already has this name; send allowDuplicateName=true to add another"));
+                                            "Party [40] already has this name; send allowDuplicateName=true to allow it"));
                 });
 
         verify(partyDao, never()).insert(any(Party.class));
@@ -246,6 +247,154 @@ class PartyServiceImplTest {
                 .hasMessage("partyFirstName or partyLastName is required");
 
         verify(partyDao, never()).insert(any(Party.class));
+    }
+
+    @Test
+    void updateReplacesTheFieldsAndKeepsTheTypeTheActivationDateAndTheIdentitiesWhenLeftOut() {
+        noDuplicates();
+        when(partyDao.findPartyById(12L)).thenReturn(Optional.of(existingParty()));
+
+        PartyResponse updated = service.update(12L, PartyUpdateRequest.builder()
+                .partyFirstName("Ann")
+                .partyLastName("Smith")
+                .partyCity(" Raleigh ")
+                .build(), false);
+
+        ArgumentCaptor<Party> saved = ArgumentCaptor.forClass(Party.class);
+        verify(partyDao).update(saved.capture());
+        assertThat(saved.getValue().getPartyId()).isEqualTo(12L);
+        assertThat(saved.getValue().getPartyType()).isEqualTo("P");
+        assertThat(saved.getValue().getPartyCity()).isEqualTo("Raleigh");
+        assertThat(saved.getValue().getPartyEmail()).isNull();
+        assertThat(saved.getValue().getPartyActivationDate()).isEqualTo(LocalDateTime.parse("2020-03-04T00:00:00"));
+        verify(partyDao, never()).findByName(any(), any());
+        verify(partyExternalIdentityDao, never()).delete(any());
+        verify(partyExternalIdentityDao, never()).insert(any(PartyExternalIdentity.class));
+        assertThat(updated.getPartyId()).isEqualTo(12L);
+    }
+
+    @Test
+    void updateRejectsAnUnknownParty() {
+        when(partyDao.findPartyById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.update(99L, PartyUpdateRequest.builder().partyFirstName("Ann").build(), false))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Party [99] was not found");
+    }
+
+    @Test
+    void updateMakesTheIdentitiesExactlyTheListedOnes() {
+        noDuplicates();
+        when(partyDao.findPartyById(12L)).thenReturn(Optional.of(existingParty()));
+        PartyExternalIdentity kept = PartyExternalIdentity.builder()
+                .partyExternalIdentityId(7L).partyId(12L).transactionPlatformId(1).externalPartyId("AnnBricks").build();
+        PartyExternalIdentity removed = PartyExternalIdentity.builder()
+                .partyExternalIdentityId(8L).partyId(12L).transactionPlatformId(2).externalPartyId("old-ebay").build();
+        when(partyExternalIdentityDao.findByPartyId(12L)).thenReturn(List.of(kept, removed));
+        when(partyExternalIdentityDao.findByPlatformAndExternalPartyId(1, "annbricks")).thenReturn(Optional.of(kept));
+
+        service.update(12L, PartyUpdateRequest.builder()
+                .partyType("C")
+                .partyFirstName("Ann")
+                .partyLastName("Smith")
+                .externalIdentities(List.of(identity("Bricklink", "annbricks"), identity("eBay", "new-ebay")))
+                .build(), false);
+
+        verify(partyExternalIdentityDao).delete(8L);
+        verify(partyExternalIdentityDao, never()).delete(7L);
+        ArgumentCaptor<PartyExternalIdentity> added = ArgumentCaptor.forClass(PartyExternalIdentity.class);
+        verify(partyExternalIdentityDao).insert(added.capture());
+        assertThat(added.getValue().getPartyId()).isEqualTo(12L);
+        assertThat(added.getValue().getTransactionPlatformId()).isEqualTo(2);
+        assertThat(added.getValue().getExternalPartyId()).isEqualTo("new-ebay");
+        ArgumentCaptor<Party> saved = ArgumentCaptor.forClass(Party.class);
+        verify(partyDao).update(saved.capture());
+        assertThat(saved.getValue().getPartyType()).isEqualTo("C");
+    }
+
+    @Test
+    void updateWithAnEmptyIdentityListRemovesThemAll() {
+        noDuplicates();
+        when(partyDao.findPartyById(12L)).thenReturn(Optional.of(existingParty()));
+        when(partyExternalIdentityDao.findByPartyId(12L)).thenReturn(List.of(PartyExternalIdentity.builder()
+                .partyExternalIdentityId(7L).partyId(12L).transactionPlatformId(1).externalPartyId("annbricks").build()));
+
+        service.update(12L, PartyUpdateRequest.builder()
+                .partyFirstName("Ann").partyLastName("Smith").externalIdentities(List.of()).build(), false);
+
+        verify(partyExternalIdentityDao).delete(7L);
+    }
+
+    @Test
+    void updateIgnoresThePartyItselfWhenLookingForDuplicates() {
+        noDuplicates();
+        when(partyDao.findPartyById(12L)).thenReturn(Optional.of(existingParty()));
+        when(partyDao.findByEmail("ann@example.com")).thenReturn(List.of(Party.builder().partyId(12L).build()));
+
+        service.update(12L, PartyUpdateRequest.builder()
+                .partyFirstName("Ann").partyLastName("Smith").partyEmail("ann@example.com").build(), false);
+
+        verify(partyDao).update(any(Party.class));
+    }
+
+    @Test
+    void updateRejectsAnEmailIdentityOrNewNameThatAnotherPartyHas() {
+        when(partyDao.findPartyById(12L)).thenReturn(Optional.of(existingParty()));
+        when(partyDao.findByEmail("bob@example.com")).thenReturn(List.of(Party.builder().partyId(40L).build()));
+        when(partyDao.findByName("Bob", "Jones")).thenReturn(List.of(
+                Party.builder().partyId(12L).build(),
+                Party.builder().partyId(41L).build()));
+        when(partyExternalIdentityDao.findByPlatformAndExternalPartyId(1, "bobbricks"))
+                .thenReturn(Optional.of(PartyExternalIdentity.builder().partyId(42L).build()));
+        PartyUpdateRequest request = PartyUpdateRequest.builder()
+                .partyFirstName("Bob")
+                .partyLastName("Jones")
+                .partyEmail("bob@example.com")
+                .externalIdentities(List.of(identity("Bricklink", "bobbricks")))
+                .build();
+
+        assertThatThrownBy(() -> service.update(12L, request, false))
+                .isInstanceOfSatisfying(DuplicatePartyException.class, duplicate -> assertThat(duplicate.getMatches())
+                        .extracting(ApiValidationError::getField, ApiValidationError::getMessage)
+                        .containsExactly(
+                                tuple("partyEmail", "Party [40] already has this email"),
+                                tuple("externalIdentities", "Party [42] already has the external identity [bobbricks]"),
+                                tuple("partyName",
+                                        "Party [41] already has this name; send allowDuplicateName=true to allow it")));
+
+        verify(partyDao, never()).update(any(Party.class));
+        verify(partyExternalIdentityDao, never()).delete(any());
+    }
+
+    @Test
+    void updateAllowsANewNameAnotherPartyHasWhenAsked() {
+        noDuplicates();
+        when(partyDao.findPartyById(12L)).thenReturn(Optional.of(existingParty()));
+        when(partyDao.findByName("Bob", "Jones")).thenReturn(List.of(Party.builder().partyId(41L).build()));
+
+        service.update(12L, PartyUpdateRequest.builder().partyFirstName("Bob").partyLastName("Jones").build(), true);
+
+        verify(partyDao).update(any(Party.class));
+    }
+
+    @Test
+    void updateRejectsAMissingName() {
+        when(partyDao.findPartyById(12L)).thenReturn(Optional.of(existingParty()));
+
+        assertThatThrownBy(() -> service.update(12L, PartyUpdateRequest.builder().partyFirstName(" ").build(), false))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("partyFirstName or partyLastName is required");
+    }
+
+    private static Party existingParty() {
+        return Party.builder()
+                .partyId(12L)
+                .partyType("P")
+                .partyFirstName("ann")
+                .partyLastName("Smith ")
+                .partyEmail("old@example.com")
+                .partyActivationDate(LocalDateTime.parse("2020-03-04T00:00:00"))
+                .build();
     }
 
     private void noDuplicates() {

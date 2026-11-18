@@ -2,6 +2,7 @@ package com.vattima.lego.inventory.service.api;
 
 import com.vattima.lego.inventory.service.dto.PartyCreateRequest;
 import com.vattima.lego.inventory.service.dto.PartyResponse;
+import com.vattima.lego.inventory.service.dto.PartyUpdateRequest;
 
 import java.util.List;
 
@@ -20,4 +21,11 @@ public interface PartyService {
      * add; one with the same name blocks it unless {@code allowDuplicateName} is true.
      */
     PartyResponse create(PartyCreateRequest request, boolean allowDuplicateName);
+
+    /**
+     * Replaces an existing party's fields and, when the request lists them, its external identities. The
+     * duplicate rules of {@link #create} apply against the other parties; the name is only checked when it
+     * changes.
+     */
+    PartyResponse update(Long partyId, PartyUpdateRequest request, boolean allowDuplicateName);
 }

@@ -3,6 +3,7 @@ package com.vattima.lego.inventory.service.controller;
 import com.vattima.lego.inventory.service.api.PartyService;
 import com.vattima.lego.inventory.service.dto.PartyCreateRequest;
 import com.vattima.lego.inventory.service.dto.PartyResponse;
+import com.vattima.lego.inventory.service.dto.PartyUpdateRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -51,6 +52,18 @@ class PartyControllerTest {
         ResponseEntity<PartyResponse> response = controller().create(request, true);
 
         assertThat(response.getStatusCode().value()).isEqualTo(201);
+        assertThat(response.getBody()).isSameAs(party);
+    }
+
+    @Test
+    void updateAnswersOkWithTheUpdatedParty() {
+        PartyUpdateRequest request = PartyUpdateRequest.builder().partyFirstName("Ann").build();
+        PartyResponse party = PartyResponse.builder().partyId(12L).build();
+        when(partyService.update(12L, request, false)).thenReturn(party);
+
+        ResponseEntity<PartyResponse> response = controller().update(12L, request, false);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getBody()).isSameAs(party);
     }
 

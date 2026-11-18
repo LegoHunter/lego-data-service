@@ -67,6 +67,21 @@ Content-Type: application/json
   name, repeat the request with `?allowDuplicateName=true`. A matching email or
   external identity cannot be overridden.
 
+To correct a party later, send all of its fields again:
+
+```http
+PUT <base-url>/api/v1/parties/<party-id>
+Content-Type: application/json
+```
+
+- The body has the same fields as the add. A field left out is cleared, so read the
+  party first (`GET <base-url>/api/v1/parties/<party-id>`) and send back what should stay.
+- Two things are kept when left out: `partyType` and `externalIdentities`. When
+  `externalIdentities` is sent, it is the full set the party has afterwards; an empty
+  list removes them all.
+- The same `409` rules apply against the other parties. The name is only checked when
+  it changes.
+
 ### Add the item
 
 ```http
