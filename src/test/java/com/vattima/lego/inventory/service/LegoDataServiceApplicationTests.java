@@ -13,6 +13,8 @@ import io.legohunter.data.dao.ItemInventorySeedSourceDao;
 import io.legohunter.data.dao.ItemInventoryStateDao;
 import io.legohunter.data.dao.MarketplaceListingDao;
 import io.legohunter.data.dao.MarketplaceListingSyncRequestDao;
+import io.legohunter.data.dao.PartyDao;
+import io.legohunter.data.dao.PartyExternalIdentityDao;
 import io.legohunter.data.dao.PaymentDao;
 import io.legohunter.data.dao.PaymentPlatformDao;
 import io.legohunter.data.dao.TransactionCostDao;
@@ -46,6 +48,12 @@ class LegoDataServiceApplicationTests {
 
 	@MockitoBean
 	private CarrierDao carrierDao;
+
+	@MockitoBean
+	private PartyDao partyDao;
+
+	@MockitoBean
+	private PartyExternalIdentityDao partyExternalIdentityDao;
 
 	@MockitoBean
 	private BricklinkMarketplaceListingDao bricklinkMarketplaceListingDao;

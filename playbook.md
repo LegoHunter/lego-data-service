@@ -24,6 +24,66 @@ Pricing Plane supplies that price.
 
 ## Step 1: Intake the item
 
+### Find or add the seller first
+
+Intake needs `fromPartyId` (the seller) and `toPartyId` (the owner), and both must be
+existing parties. Look the seller up by any mix of name, email and marketplace user name:
+
+```http
+GET <base-url>/api/v1/parties?name=smith
+GET <base-url>/api/v1/parties?email=ann@example.com
+GET <base-url>/api/v1/parties?transactionPlatformName=Bricklink&externalPartyId=annbricks
+```
+
+`name` and `email` match part of the value and ignore case. Each result carries the
+`partyId` to use. When there is no match, add the seller:
+
+```http
+POST <base-url>/api/v1/parties
+Content-Type: application/json
+```
+
+```json
+{
+  "partyType": "P",
+  "partyFirstName": "Ann",
+  "partyLastName": "Smith",
+  "partyEmail": "ann@example.com",
+  "partyCity": "Raleigh",
+  "partyCountry": "USA",
+  "externalIdentities": [
+    { "transactionPlatformName": "Bricklink", "externalPartyId": "annbricks" }
+  ]
+}
+```
+
+- `partyType` is `P` for a person or `C` for a company. A company's name goes in
+  `partyFirstName`.
+- Only `partyType` and a first or last name are required.
+- The answer is `201` with the new party; save its `partyId`.
+- The answer is `409` with code `DUPLICATE_PARTY` when an existing party has the same
+  email, the same external identity or the same name. Each error names the matching
+  party id, so use that party instead. If it really is a different party with the same
+  name, repeat the request with `?allowDuplicateName=true`. A matching email or
+  external identity cannot be overridden.
+
+To correct a party later, send all of its fields again:
+
+```http
+PUT <base-url>/api/v1/parties/<party-id>
+Content-Type: application/json
+```
+
+- The body has the same fields as the add. A field left out is cleared, so read the
+  party first (`GET <base-url>/api/v1/parties/<party-id>`) and send back what should stay.
+- Two things are kept when left out: `partyType` and `externalIdentities`. When
+  `externalIdentities` is sent, it is the full set the party has afterwards; an empty
+  list removes them all.
+- The same `409` rules apply against the other parties. The name is only checked when
+  it changes.
+
+### Add the item
+
 ```http
 POST <base-url>/api/v1/inventory
 Content-Type: application/json
