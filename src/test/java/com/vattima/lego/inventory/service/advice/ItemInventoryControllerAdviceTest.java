@@ -6,6 +6,9 @@ import com.vattima.lego.inventory.service.exception.ValidationException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Path;
+import com.vattima.lego.inventory.service.dto.ApiValidationError;
+import com.vattima.lego.inventory.service.exception.DuplicatePartyException;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -25,6 +28,20 @@ import static org.mockito.Mockito.when;
 
 class ItemInventoryControllerAdviceTest {
     private final ItemInventoryControllerAdvice advice = new ItemInventoryControllerAdvice();
+
+    @Test
+    void duplicatePartyReturnsConflictWithOneErrorPerMatch() {
+        ApiValidationError match = ApiValidationError.builder()
+                .field("partyEmail").message("Party [12] already has this email").code("DUPLICATE_PARTY").build();
+
+        ResponseEntity<ApiErrorResponse> response =
+                advice.duplicatePartyHandler(new DuplicatePartyException(List.of(match)));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(409);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("A matching party already exists");
+        assertThat(response.getBody().getErrors()).containsExactly(match);
+    }
 
     @Test
     void validationExceptionReturnsStructuredBusinessRuleError() {

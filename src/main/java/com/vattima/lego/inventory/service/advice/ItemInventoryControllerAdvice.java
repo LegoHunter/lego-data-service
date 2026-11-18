@@ -2,6 +2,7 @@ package com.vattima.lego.inventory.service.advice;
 
 import com.vattima.lego.inventory.service.dto.ApiErrorResponse;
 import com.vattima.lego.inventory.service.dto.ApiValidationError;
+import com.vattima.lego.inventory.service.exception.DuplicatePartyException;
 import com.vattima.lego.inventory.service.exception.NotFoundException;
 import com.vattima.lego.inventory.service.exception.ValidationException;
 import jakarta.validation.ConstraintViolation;
@@ -45,6 +46,15 @@ public class ItemInventoryControllerAdvice {
                         .message(e.getMessage())
                         .code("NOT_FOUND")
                         .build()))
+                .build());
+    }
+
+    /** A new party matches existing ones: 409, with one error per matching party. */
+    @ExceptionHandler(DuplicatePartyException.class)
+    public ResponseEntity<ApiErrorResponse> duplicatePartyHandler(DuplicatePartyException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.builder()
+                .message(e.getMessage())
+                .errors(e.getMatches())
                 .build());
     }
 

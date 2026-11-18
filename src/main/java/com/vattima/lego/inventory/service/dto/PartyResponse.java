@@ -1,14 +1,20 @@
 package com.vattima.lego.inventory.service.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @Builder
-public class PartyRequest {
+@NoArgsConstructor
+@AllArgsConstructor
+public class PartyResponse {
     private Long partyId;
+    private String partyType;
     private String partyFirstName;
     private String partyMiddleInitial;
     private String partyLastName;
@@ -21,6 +27,6 @@ public class PartyRequest {
     private String partyCountry;
     private String partyPhone;
     private String partyEmail;
-    private String partyType;
-    private LocalDateTime partyActivationDate;
+    private LocalDate partyActivationDate;
+    private List<PartyExternalIdentityResponse> externalIdentities;
 }
