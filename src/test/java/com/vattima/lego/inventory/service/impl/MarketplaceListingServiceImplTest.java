@@ -12,6 +12,8 @@ import com.vattima.lego.inventory.service.dto.MarketplaceListingSyncRequestPrevi
 import com.vattima.lego.inventory.service.exception.NotFoundException;
 import com.vattima.lego.inventory.service.exception.ValidationException;
 import com.vattima.lego.inventory.service.validation.MarketplaceListingDraftBusinessValidator;
+import io.legohunter.data.dao.BricklinkLotTextSource;
+import io.legohunter.data.dao.ExternalImageAlbumDao;
 import io.legohunter.data.dao.BricklinkMarketplaceListingDao;
 import io.legohunter.data.dao.ExternalServiceDao;
 import io.legohunter.data.dao.ItemInventoryDao;
@@ -19,6 +21,7 @@ import io.legohunter.data.dao.ItemInventoryExternalCatalogItemDao;
 import io.legohunter.data.dao.ItemInventoryPhotoDao;
 import io.legohunter.data.dao.MarketplaceListingDao;
 import io.legohunter.data.dao.MarketplaceListingSyncRequestDao;
+import io.legohunter.data.dto.ExternalImageAlbum;
 import io.legohunter.data.dto.BricklinkMarketplaceListing;
 import io.legohunter.data.dto.ExternalCatalogItem;
 import io.legohunter.data.dto.ExternalService;
@@ -36,6 +39,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -56,6 +60,7 @@ class MarketplaceListingServiceImplTest {
     @Mock private ItemInventoryPhotoDao itemInventoryPhotoDao;
     @Mock private MarketplaceListingDao marketplaceListingDao;
     @Mock private MarketplaceListingSyncRequestDao marketplaceListingSyncRequestDao;
+    @Mock private ExternalImageAlbumDao externalImageAlbumDao;
 
     private MarketplaceListingDraftProperties properties;
     private MarketplaceListingServiceImpl service;
@@ -74,7 +79,8 @@ class MarketplaceListingServiceImplTest {
                 marketplaceListingDao,
                 marketplaceListingSyncRequestDao,
                 new MarketplaceListingDraftBusinessValidator(),
-                properties
+                properties,
+                new BricklinkLotTextSource(externalImageAlbumDao, itemInventoryPhotoDao)
         );
     }
 
@@ -740,6 +746,26 @@ class MarketplaceListingServiceImplTest {
     }
 
     @Test
+    void aDraftWhoseLotDescriptionIsTooLongCannotBeSentToBricklink() {
+        // HOMELAB-82: a draft saved before its album link arrived can outgrow 255 characters.
+        MarketplaceListing listing = listing(101, 202, new BigDecimal("42.125"), "DRAFT");
+        listing.setDescription("x".repeat(220));
+        stubReadyListing(listing, bricklinkDraft(null));
+        when(externalImageAlbumDao.findByExternalServiceIdAndItemInventoryId(10, 202)).thenReturn(Optional.of(
+                ExternalImageAlbum.builder().albumUrl("https://www.flickr.com/photos/205153404@N04/sets/72177720336783526/").build()));
+        when(marketplaceListingSyncRequestDao.findByMarketplaceListingIdAndSyncRequestTypeCodeAndSyncRequestStatusCodes(
+                101,
+                "LISTING_CREATE",
+                Set.of("PENDING", "CLAIMED")
+        )).thenReturn(Set.of());
+
+        assertThatThrownBy(() -> service.createListingCreateSyncRequest(101, null))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("BRICKLINK_DESCRIPTION_TOO_LONG");
+        verify(marketplaceListingSyncRequestDao, never()).insert(any());
+    }
+
+    @Test
     void createListingCreateSyncRequestPersistsPendingRequestWhenDraftIsReady() {
         MarketplaceListing listing = listing(101, 202, new BigDecimal("42.125"), "DRAFT");
         MarketplaceListingSyncRequest inserted = syncRequest(900L, 101, "LISTING_CREATE", "PENDING");
@@ -942,10 +968,45 @@ class MarketplaceListingServiceImplTest {
     @Test
     void theLotDescriptionIsTheListingDescriptionOrElseItsTitle() {
         MarketplaceListing listing = MarketplaceListing.builder().title(" Main Street ").build();
-        assertThat(MarketplaceListingServiceImpl.lotDescription(listing)).isEqualTo("Main Street");
+        assertThat(service.lotDescription(listing).text()).isEqualTo("Main Street");
         listing.setDescription(" Complete with box ");
-        assertThat(MarketplaceListingServiceImpl.lotDescription(listing)).isEqualTo("Complete with box");
-        assertThat(MarketplaceListingServiceImpl.lotDescription(MarketplaceListing.builder().title(" ").build())).isNull();
+        assertThat(service.lotDescription(listing).text()).isEqualTo("Complete with box");
+        assertThat(service.lotDescription(MarketplaceListing.builder().title(" ").build()).present()).isFalse();
+    }
+
+    @Test
+    void theLotDescriptionCarriesTheAlbumLinkAndTheNoteWhereTheExtendedDescriptionIsWritten() {
+        // HOMELAB-82: the same rule lego-data-ingress sends to BrickLink.
+        when(externalImageAlbumDao.findByExternalServiceIdAndItemInventoryId(10, 202)).thenReturn(Optional.of(
+                ExternalImageAlbum.builder().albumUrl("https://www.flickr.com/photos/u/sets/1/").build()));
+        when(itemInventoryPhotoDao.findProcessedCaptionsByItemInventoryId(202)).thenReturn(List.of("Small mark."));
+        MarketplaceListing listing = MarketplaceListing.builder().itemInventoryId(202).title("Test Car").build();
+
+        assertThat(service.lotDescription(listing).text())
+                .isEqualTo("Test Car. <a href=\"https://www.flickr.com/photos/u/sets/1/\">View all photos</a>.");
+        properties.setExtendedDescriptionSync(true);
+        assertThat(service.lotDescription(listing).text())
+                .endsWith("</a>. See Extended Description for additional Item Condition notes.");
+    }
+
+    @Test
+    void anEditThatMakesTheLotDescriptionTooLongIsRefusedAndNothingIsSaved() {
+        ItemInventory inventory = inventory("SELLABLE", "AVAILABLE", true);
+        MarketplaceListing existing = listing(101, 202, new BigDecimal("125.00"), "ACTIVE");
+        existing.setTitle("Summer Cottage");
+        when(marketplaceListingDao.findByMarketplaceListingId(101)).thenReturn(Optional.of(existing));
+        when(itemInventoryDao.findByItemInventoryId(202)).thenReturn(Optional.of(inventory));
+        when(itemInventoryExternalCatalogItemDao.findByItemInventoryId(202)).thenReturn(Set.of(primaryBricklinkCatalogLink()));
+        when(externalServiceDao.findByServiceCode("BRICKLINK")).thenReturn(Optional.of(bricklinkService()));
+        when(marketplaceListingDao.findByItemInventoryId(202)).thenReturn(Set.of(existing));
+
+        assertThatThrownBy(() -> service.updateDraft(101, MarketplaceListingDraftUpdateRequest.builder()
+                .description("x".repeat(250) + " & co").build()))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("259 characters")
+                .hasMessageContaining("allows 255");
+        verify(marketplaceListingDao, never()).update(any());
+        verify(marketplaceListingSyncRequestDao, never()).insert(any());
     }
 
     private void stubUpdateInputs(ItemInventory inventory, MarketplaceListing existing, BricklinkMarketplaceListing stored) {

@@ -7,6 +7,7 @@ import io.legohunter.data.dao.ExternalCatalogItemDao;
 import io.legohunter.data.dao.ExternalServiceDao;
 import io.legohunter.data.dao.ItemInventoryDao;
 import io.legohunter.data.dao.ItemInventoryExternalCatalogItemDao;
+import io.legohunter.data.dao.BricklinkLotTextSource;
 import io.legohunter.data.dao.ItemInventoryPhotoDao;
 import io.legohunter.data.dao.ItemInventorySaleIntentDao;
 import io.legohunter.data.dao.ItemInventorySeedSourceDao;
@@ -72,6 +73,9 @@ class LegoDataServiceApplicationTests {
 
 	@MockitoBean
 	private ItemInventoryPhotoDao itemInventoryPhotoDao;
+
+	@MockitoBean
+	private BricklinkLotTextSource bricklinkLotTextSource;
 
 	@MockitoBean
 	private ItemInventoryDao itemInventoryDao;

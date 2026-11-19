@@ -29,6 +29,9 @@ lego:
     production: false
   marketplace-listing-drafts:
     non-prod-bricklink-stockroom-id: C
+    # HOMELAB-82: lego-data-ingress writes the Extended Description here (APPLY), so the lot
+    # Description carries the "See Extended Description" sentence; counted in the 255 check.
+    extended-description-sync: true
 
 logging:
   level:
