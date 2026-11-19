@@ -19,6 +19,10 @@ lego:
     production: ${lego.environment.production}
     environment-code: ${lego.environment.code}
     non-prod-bricklink-stockroom-id: ${MARKETPLACE_LISTING_DRAFTS_NON_PROD_BRICKLINK_STOCKROOM_ID:C}
+    # HOMELAB-82: true only where lego-data-ingress writes the Extended Description (its
+    # extended-description-sync in APPLY). It adds the "See Extended Description ..." sentence to the
+    # lot Description, so it must agree with ingress for the 255-character check to be right.
+    extended-description-sync: false
 
 management:
   info:

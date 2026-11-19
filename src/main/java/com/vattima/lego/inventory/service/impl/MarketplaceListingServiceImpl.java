@@ -15,6 +15,8 @@ import com.vattima.lego.inventory.service.exception.NotFoundException;
 import com.vattima.lego.inventory.service.exception.ValidationException;
 import com.vattima.lego.inventory.service.validation.MarketplaceListingDraftBusinessValidator;
 import io.legohunter.data.bricklink.BricklinkInventoryColorPolicy;
+import io.legohunter.data.bricklink.BricklinkLotText;
+import io.legohunter.data.dao.BricklinkLotTextSource;
 import io.legohunter.data.dao.BricklinkMarketplaceListingDao;
 import io.legohunter.data.dao.ExternalServiceDao;
 import io.legohunter.data.dao.ItemInventoryDao;
@@ -75,6 +77,7 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
     private final MarketplaceListingSyncRequestDao marketplaceListingSyncRequestDao;
     private final MarketplaceListingDraftBusinessValidator validator;
     private final MarketplaceListingDraftProperties properties;
+    private final BricklinkLotTextSource lotTextSource;
 
     @Override
     @Transactional
@@ -112,6 +115,7 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
                 .currencyCode(request.getCurrencyCode())
                 .fixedPrice(Boolean.TRUE.equals(request.getFixedPrice()))
                 .build();
+        requireLotDescriptionFits(listing);
         MarketplaceListing persistedListing = marketplaceListingDao.insert(listing);
         BricklinkMarketplaceListing persistedBricklink = bricklinkMarketplaceListingDao.insert(
                 toBricklinkMarketplaceListing(
@@ -163,7 +167,7 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
         ItemInventory itemInventory = requireInventory(listing.getItemInventoryId());
         Set<ItemInventoryExternalCatalogItem> catalogLinks = itemInventoryExternalCatalogItemDao
                 .findByItemInventoryId(itemInventory.getItemInventoryId());
-        String lotDescriptionBefore = lotDescription(listing);
+        String lotDescriptionBefore = lotDescription(listing).text();
 
         if (request.getExternalCatalogItemId() != null) {
             ItemInventoryExternalCatalogItem catalogLink = validator
@@ -193,6 +197,7 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
             listing.setFixedPrice(request.getFixedPrice());
         }
         validateDraftPreconditions(itemInventory, requireExternalService(BRICKLINK.getServiceCode()), marketplaceListingId);
+        requireLotDescriptionFits(listing);
         MarketplaceListing persistedListing = marketplaceListingDao.update(listing);
 
         Optional<BricklinkMarketplaceListing> existingBricklink = bricklinkMarketplaceListingDao.findByMarketplaceListingId(marketplaceListingId);
@@ -212,14 +217,24 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
     }
 
     /**
-     * The text a listing's BrickLink lot shows as its Description: its description, otherwise its title. The same
-     * rule as lego-data-ingress's BricklinkLotDescription, which creates and updates the lot.
+     * The text a listing's BrickLink lot shows as its Description: its description, otherwise its title, then the
+     * album link and the Extended Description sentence (HOMELAB-82). The one rule in lego-data
+     * ({@link io.legohunter.data.bricklink.BricklinkLotText}) that lego-data-ingress also uses to create and update
+     * the lot.
      */
-    static String lotDescription(MarketplaceListing listing) {
-        if (listing.getDescription() != null && !listing.getDescription().isBlank()) {
-            return listing.getDescription().trim();
+    BricklinkLotText.Description lotDescription(MarketplaceListing listing) {
+        return lotTextSource.description(listing, properties.isExtendedDescriptionSync());
+    }
+
+    /**
+     * The owner's rule (HOMELAB-82): a lot Description over BrickLink's 255 characters is never trimmed, it is an
+     * error to fix in the listing's description or title.
+     */
+    private void requireLotDescriptionFits(MarketplaceListing listing) {
+        BricklinkLotText.Description description = lotDescription(listing);
+        if (description.tooLong()) {
+            throw new ValidationException(description.tooLongMessage());
         }
-        return listing.getTitle() == null || listing.getTitle().isBlank() ? null : listing.getTitle().trim();
     }
 
     /**
@@ -232,7 +247,7 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
             BricklinkMarketplaceListing bricklinkListing,
             String lotDescriptionBefore
     ) {
-        String lotDescriptionAfter = lotDescription(listing);
+        String lotDescriptionAfter = lotDescription(listing).text();
         if (bricklinkListing == null || bricklinkListing.getBricklinkInventoryId() == null
                 || lotDescriptionAfter == null || Objects.equals(lotDescriptionBefore, lotDescriptionAfter)) {
             return;
@@ -388,6 +403,10 @@ public class MarketplaceListingServiceImpl implements MarketplaceListingService 
                         "BRICKLINK_REMOTE_INVENTORY_ALREADY_EXISTS",
                         "LISTING_CREATE is only valid for local drafts that do not already have a BrickLink inventory id"
                 )));
+        BricklinkLotText.Description lotDescription = lotDescription(listing);
+        if (lotDescription.tooLong()) {
+            blockers.add(blocker("BRICKLINK_DESCRIPTION_TOO_LONG", lotDescription.tooLongMessage()));
+        }
         if (!activeRequests.isEmpty() && insertedSyncRequest == null) {
             blockers.add(blocker(
                     "ACTIVE_SYNC_REQUEST_ALREADY_EXISTS",
