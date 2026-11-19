@@ -746,6 +746,26 @@ class MarketplaceListingServiceImplTest {
     }
 
     @Test
+    void aDraftWhoseLotDescriptionIsTooLongCannotBeSentToBricklink() {
+        // HOMELAB-82: a draft saved before its album link arrived can outgrow 255 characters.
+        MarketplaceListing listing = listing(101, 202, new BigDecimal("42.125"), "DRAFT");
+        listing.setDescription("x".repeat(220));
+        stubReadyListing(listing, bricklinkDraft(null));
+        when(externalImageAlbumDao.findByExternalServiceIdAndItemInventoryId(10, 202)).thenReturn(Optional.of(
+                ExternalImageAlbum.builder().albumUrl("https://www.flickr.com/photos/205153404@N04/sets/72177720336783526/").build()));
+        when(marketplaceListingSyncRequestDao.findByMarketplaceListingIdAndSyncRequestTypeCodeAndSyncRequestStatusCodes(
+                101,
+                "LISTING_CREATE",
+                Set.of("PENDING", "CLAIMED")
+        )).thenReturn(Set.of());
+
+        assertThatThrownBy(() -> service.createListingCreateSyncRequest(101, null))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("BRICKLINK_DESCRIPTION_TOO_LONG");
+        verify(marketplaceListingSyncRequestDao, never()).insert(any());
+    }
+
+    @Test
     void createListingCreateSyncRequestPersistsPendingRequestWhenDraftIsReady() {
         MarketplaceListing listing = listing(101, 202, new BigDecimal("42.125"), "DRAFT");
         MarketplaceListingSyncRequest inserted = syncRequest(900L, 101, "LISTING_CREATE", "PENDING");
