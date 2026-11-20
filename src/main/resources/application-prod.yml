@@ -1,0 +1,31 @@
+spring:
+  config:
+    import: file:${import-path}/database-configuration.yml
+  datasource:
+    database-key-name: rasppi5-01-lego-prod
+    hikari:
+      # MySQL on rasppi5-01 runs on Eastern time. Run every session in UTC so CURRENT_TIMESTAMP
+      # defaults, NOW() and TIMESTAMP columns agree with the UTC values the application writes.
+      connection-init-sql: "SET time_zone = '+00:00'"
+      connection-timeout: 10000
+      idle-timeout: 30000
+      connection-test-query: SELECT 1
+      initialization-fail-timeout: 10000
+      auto-commit: false
+      login-timeout: 10000
+      minimum-idle: 10
+      maximum-pool-size: 10
+      validation-timeout: 10000
+      pool-name: rasppi5-01-mysql-jdbc-pool
+
+otel:
+  resource:
+    attributes:
+      deployment.environment: prod
+
+lego:
+  environment:
+    code: prod
+    production: true
+  # No lego.marketplace-listing-drafts.non-prod-bricklink-stockroom-id here: PROD drafts are not
+  # forced into a stockroom, and stockroom A is PROD's own, for deliberately hiding a lot (HOMELAB-20).

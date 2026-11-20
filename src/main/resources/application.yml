@@ -1,0 +1,63 @@
+server:
+  port: ${serverPort:8080}
+spring:
+  jmx:
+    enabled: off
+  application:
+    name: Lego Data Service
+
+lego:
+  data:
+    enabled: true
+  # Runtime environment identity, declared once per profile (bound by the lego-data starter).
+  # At startup the lego-data starter refuses to run unless the code matches the connected database
+  # (sandbox=lego_sandbox, dev=lego_dev, prod=lego_prod; local=anything but lego_prod).
+  environment:
+    code: local
+    production: false
+  marketplace-listing-drafts:
+    production: ${lego.environment.production}
+    environment-code: ${lego.environment.code}
+    non-prod-bricklink-stockroom-id: ${MARKETPLACE_LISTING_DRAFTS_NON_PROD_BRICKLINK_STOCKROOM_ID:C}
+    # HOMELAB-82: true only where lego-data-ingress writes the Extended Description (its
+    # extended-description-sync in APPLY). It adds the "See Extended Description ..." sentence to the
+    # lot Description, so it must agree with ingress for the 255-character check to be right.
+    extended-description-sync: false
+
+management:
+  info:
+    git:
+      enabled: true
+      mode: full
+
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,startup
+
+aws-credentials:
+  client-config-dir: C:\Users\tvatt\.credentials\aws
+  client-config-file: aws-iam-credentials.json
+
+aws-iam-roles-anywhere:
+  client-config-dir: C:\Users\tvatt\.credentials\aws
+  client-config-file: aws-iam-roles-anywhere.json
+
+flickr:
+  client-config-dir: C:\Users\tvatt\.credentials\flickr.api
+  client-config-file: flickr-client-api-keys.json
+  application-name: lego-imaging
+  debug-request: false
+  debug-stream: false
+
+bitly:
+  client-config-dir: C:\Users\tvatt\.credentials\bitly.api
+  client-config-file: bitly-client-api-keys.json
+
+events:
+  queues:
+    user-created-by-name-queue: sandbox-sqs-queue
+
+logging:
+  level:
+    root: INFO

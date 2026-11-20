@@ -1,0 +1,26 @@
+package com.vattima.lego.inventory.service.config;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+@Data
+@Component
+@ConfigurationProperties(prefix = "lego.marketplace-listing-drafts")
+public class MarketplaceListingDraftProperties {
+    private boolean production;
+    private String environmentCode = "local";
+    /**
+     * The stockroom every BrickLink draft from this lower environment is stamped with: C for
+     * SANDBOX (and local), B for DEV. No default: A is reserved for PROD. Checked at startup by
+     * {@link MarketplaceListingDraftStockroomValidator} (HOMELAB-20). Not used in PROD.
+     */
+    private String nonProdBricklinkStockroomId;
+    /**
+     * Whether this environment's lego-data-ingress writes the BrickLink Extended Description (its Extended
+     * Description sync in APPLY), so the lot Description ends with "See Extended Description for additional Item
+     * Condition notes." when a photo has a caption (HOMELAB-82). Must agree with lego-data-ingress: it decides the
+     * length checked when a listing is created or edited. Off by default.
+     */
+    private boolean extendedDescriptionSync;
+}

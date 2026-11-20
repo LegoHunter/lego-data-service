@@ -1,0 +1,44 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Namespace for this overlay
+namespace: services-sandbox
+
+labels:
+  - pairs:
+      app.kubernetes.io/instance: sandbox
+    # Also on the pod template: the base carries no environment (HOMELAB-26 E6).
+    includeTemplates: true
+
+# Base resources (environment-neutral; the patches below set the SANDBOX values)
+resources:
+  - ../../base
+
+# Image tag injection
+images:
+  - name: quay.io/tvattima/lego-data-service
+    newTag: snapshot
+
+# Replica override
+replicas:
+  - name: lego-data-service
+    count: 1
+
+# File-based strategic merge patches
+patches:
+  - path: deployment-env-patch.yaml
+  - path: deployment-resources-patch.yaml
+  # services-sandbox-external-secret mount
+  - path: deployment-sandbox-patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: lego-data-service
+  # SANDBOX hostname and TLS certificate
+  - path: ingress-patch.yaml
+    target:
+      group: traefik.io
+      version: v1alpha1
+      kind: IngressRoute
+      name: lego-data-service

@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lego-data-service
+  labels:
+    app: lego-data-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lego-data-service
+  template:
+    metadata:
+      name: lego-data-service
+      labels:
+        app: lego-data-service   # selector label (required)
+        app.kubernetes.io/name: lego-data-service
+        app.kubernetes.io/version: "1.0.0"
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: lego-platform
+    spec:
+      # HOMELAB-26 E8: never run as root; default seccomp filter; volumes group-owned by the app user.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      # HOMELAB-26 E10: room for the 10s preStop pause plus Spring Boot's graceful shutdown
+      # (spring.lifecycle.timeout-per-shutdown-phase, 30s by default) before SIGKILL.
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: lego-data-service
+          image: quay.io/tvattima/lego-data-service
+          # HOMELAB-26 E8: no privilege escalation, no Linux capabilities, read-only image filesystem.
+          # The only writable path is /tmp (volume "tmp" below).
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          # HOMELAB-26 E10: keep serving for 10s after the pod starts terminating, so Traefik drops
+          # it from its endpoints before Spring begins shutting down (and reporting readiness
+          # OUT_OF_SERVICE). Without this, every deploy returned 502/503 to callers for ~2s.
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 10
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 60   # 60 x 5s = 300s max startup
+            timeoutSeconds: 5
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 6
+            timeoutSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 10
+
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: >-
+                -Xms1g
+                -Xmx1g
+                -XX:MaxDirectMemorySize=256m
+                -XX:+UseG1GC
+                -XX:MaxGCPauseMillis=200
+                -XX:+UseContainerSupport
+          volumeMounts:
+            # Credentials for the environment (secretName set by each overlay). Must stay first:
+            # the overlays patch volumes/0.
+            - name: external-secret
+              mountPath: /etc/.credentials
+              readOnly: true
+            # Must stay after the secret: the overlays patch volumes/0.
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: external-secret
+          secret:
+            # Placeholder: every overlay replaces it with services-<env>-external-secret (HOMELAB-26 E6).
+            secretName: set-by-overlay
+        # java.io.tmpdir: Tomcat work and multipart files, ImageIO stream caches (lego-imaging
+        # ImageScalingService), image-hosting photo temp files, JVM hsperfdata.
+        - name: tmp
+          emptyDir:
+            sizeLimit: 512Mi
+      restartPolicy: Always

@@ -1,0 +1,11 @@
+lego:
+  databases:
+    test:
+      driverClassName: com.mysql.cj.jdbc.Driver
+      url: jdbc:mysql://rasppi5-01:3306/lego_sandbox
+      username: user
+      password: pwd
+
+spring:
+  datasource:
+    database-key-name: test

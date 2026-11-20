@@ -1,0 +1,41 @@
+name: Build Test Deploy
+
+# Thin caller for the shared LCMS Kubernetes service pipeline (HOMELAB-26 E2):
+#   LegoHunter/lego-server-configuration/.github/workflows/k8s-service-pipeline.yml
+# What runs on each event, the deploy gates and the conventions it relies on are documented there.
+#
+# Deploy gates: set the Actions variables DEPLOY_DEV_ENABLED / DEPLOY_PROD_ENABLED to exactly 'true'
+# (repo or LegoHunter org) to open DEV / PROD deploys. Unset means shut.
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      # PROD: the push of the develop -> main merge commit. The `prod` Environment only accepts
+      # refs/heads/main, which a pull_request run never has (HOMELAB-29).
+      - main
+  pull_request:
+    branches:
+      - develop
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
+
+# Upper bound for the shared pipeline's jobs (each job narrows it further).
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  pipeline:
+    uses: LegoHunter/lego-server-configuration/.github/workflows/k8s-service-pipeline.yml@develop
+    with:
+      app: lego-data-service
+      java-version: '21'
+      quay-username: ${{ vars.QUAY_USERNAME }}
+      deploy-dev-enabled: ${{ vars.DEPLOY_DEV_ENABLED == 'true' }}
+      deploy-prod-enabled: ${{ vars.DEPLOY_PROD_ENABLED == 'true' }}
+    secrets:
+      QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
