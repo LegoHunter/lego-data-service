@@ -136,8 +136,12 @@ Intake invariants are deliberately strict:
   to `KEEP`.
 - Every item has exactly one `PRICE` cost. Transaction-level costs must not use
   `PRICE`.
-- Cost and payment currencies and exchange rates must be compatible, and payments must
-  balance the transaction and item costs.
+- A transaction uses one currency, or two: USD and the other party's. Every payment
+  carries `exchangeRate`: `1` with one currency, otherwise the units of the other
+  currency per 1 USD (for example `1.3606` for "1 USD = 1.3606 CAD"), the same on every
+  payment. Payments must balance the transaction and item costs; with two currencies
+  both sides are converted to USD first, within one cent per converted line
+  (HOMELAB-130).
 - The BrickLink item number must resolve to a catalog item. Intake creates the primary
   `item_inventory_external_catalog_item` link.
 
