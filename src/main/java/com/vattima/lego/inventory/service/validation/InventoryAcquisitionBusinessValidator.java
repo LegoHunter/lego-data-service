@@ -7,11 +7,9 @@ import com.vattima.lego.inventory.service.dto.PaymentRequest;
 import com.vattima.lego.inventory.service.exception.ValidationException;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -25,8 +23,7 @@ public class InventoryAcquisitionBusinessValidator {
         validateTransactionCosts(request.getCosts());
         validateInventoryItems(request.getInventoryItems());
         validatePayments(request.getPayments());
-        validateSingleCurrency(request);
-        validatePaymentTotal(request);
+        validateCurrencies(request);
     }
 
     private void validatePlatform(AddItemInventoryRequest request) {
@@ -88,12 +85,6 @@ public class InventoryAcquisitionBusinessValidator {
             if (payment == null) {
                 throw new ValidationException("Payment entries must not be null");
             }
-            if (payment.getExchangeRate() == null
-                    && payment.getCurrencyCode() != null
-                    && payment.getSellerCurrencyCode() != null
-                    && !payment.getCurrencyCode().equals(payment.getSellerCurrencyCode())) {
-                throw new ValidationException("exchangeRate is required when currencyCode and sellerCurrencyCode differ");
-            }
         });
     }
 
@@ -121,62 +112,19 @@ public class InventoryAcquisitionBusinessValidator {
                 .anyMatch(costTypeCode::equals);
     }
 
-    private void validateSingleCurrency(AddItemInventoryRequest request) {
-        if (request.getCosts() == null || request.getInventoryItems() == null || request.getPayments() == null) {
-            return;
-        }
-
-        List<String> currencies = Stream.of(
-                        request.getCosts().stream()
-                                .filter(Objects::nonNull)
-                                .map(CostRequest::getCurrencyCode),
+    /** Currencies, exchange rates and the payments-equal-costs check: see {@link TransactionCurrencyRules}. */
+    private void validateCurrencies(AddItemInventoryRequest request) {
+        List<TransactionCurrencyRules.CostLine> costs = Stream.concat(
+                        request.getCosts().stream(),
                         request.getInventoryItems().stream()
-                                .filter(Objects::nonNull)
                                 .map(ItemInventoryRequest::getCosts)
-                                .filter(Objects::nonNull)
-                                .flatMap(Collection::stream)
-                                .filter(Objects::nonNull)
-                                .map(CostRequest::getCurrencyCode),
-                        request.getPayments().stream()
-                                .filter(Objects::nonNull)
-                                .map(PaymentRequest::getCurrencyCode)
-                )
-                .flatMap(Function.identity())
-                .filter(Objects::nonNull)
-                .distinct()
+                                .flatMap(Collection::stream))
+                .map(cost -> new TransactionCurrencyRules.CostLine(cost.getCurrencyCode(), cost.getAmount()))
                 .toList();
-
-        if (currencies.size() > 1) {
-            throw new ValidationException("All costs and payments in a transaction must use the same currencyCode: " + currencies);
-        }
-    }
-
-    private void validatePaymentTotal(AddItemInventoryRequest request) {
-        if (request.getCosts() == null || request.getInventoryItems() == null || request.getPayments() == null) {
-            return;
-        }
-
-        BigDecimal transactionCostTotal = request.getCosts().stream()
-                .filter(cost -> cost != null && cost.getAmount() != null)
-                .map(CostRequest::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal itemCostTotal = request.getInventoryItems().stream()
-                .filter(Objects::nonNull)
-                .map(ItemInventoryRequest::getCosts)
-                .filter(Objects::nonNull)
-                .flatMap(Collection::stream)
-                .filter(cost -> cost != null && cost.getAmount() != null)
-                .map(CostRequest::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal paymentTotal = request.getPayments().stream()
-                .filter(payment -> payment != null && payment.getAmount() != null)
-                .map(PaymentRequest::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal costTotal = transactionCostTotal.add(itemCostTotal);
-        if (costTotal.compareTo(paymentTotal) != 0) {
-            throw new ValidationException("Total payments must equal total costs. costs="
-                    + costTotal + ", payments=" + paymentTotal);
-        }
+        List<TransactionCurrencyRules.PaymentLine> payments = request.getPayments().stream()
+                .map(payment -> new TransactionCurrencyRules.PaymentLine(payment.getCurrencyCode(),
+                        payment.getSellerCurrencyCode(), payment.getExchangeRate(), payment.getAmount()))
+                .toList();
+        TransactionCurrencyRules.validate(costs, payments);
     }
 }

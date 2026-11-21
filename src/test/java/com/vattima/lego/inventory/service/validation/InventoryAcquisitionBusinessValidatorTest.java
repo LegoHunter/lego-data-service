@@ -143,14 +143,13 @@ class InventoryAcquisitionBusinessValidatorTest {
     }
 
     @Test
-    void rejectsMissingCrossCurrencyExchangeRate() {
+    void rejectsMissingExchangeRateEvenWithOneCurrency() {
         AddItemInventoryRequest request = validRequest();
-        request.getPayments().getFirst().setSellerCurrencyCode("EUR");
         request.getPayments().getFirst().setExchangeRate(null);
 
         assertThatThrownBy(() -> validator.validate(request))
                 .isInstanceOf(ValidationException.class)
-                .hasMessage("exchangeRate is required when currencyCode and sellerCurrencyCode differ");
+                .hasMessageStartingWith("exchangeRate is required on every payment");
     }
 
     @Test
@@ -176,7 +175,6 @@ class InventoryAcquisitionBusinessValidatorTest {
     @Test
     void allowsPaymentCurrencyNullsForFieldValidationToReport() {
         AddItemInventoryRequest request = validRequest();
-        request.getPayments().getFirst().setExchangeRate(null);
         request.getPayments().getFirst().setCurrencyCode(null);
 
         assertThatCode(() -> validator.validate(request)).doesNotThrowAnyException();
@@ -206,13 +204,36 @@ class InventoryAcquisitionBusinessValidatorTest {
     }
 
     @Test
-    void rejectsMixedCostAndPaymentCurrencies() {
+    void rejectsAThirdCurrency() {
         AddItemInventoryRequest request = validRequest();
         request.getInventoryItems().getFirst().getCosts().getFirst().setCurrencyCode("EUR");
+        request.getPayments().getFirst().setSellerCurrencyCode("CAD");
 
         assertThatThrownBy(() -> validator.validate(request))
                 .isInstanceOf(ValidationException.class)
-                .hasMessage("All costs and payments in a transaction must use the same currencyCode: [USD, EUR]");
+                .hasMessage("A transaction may use at most two currencies, USD and the other party's: [USD, EUR, CAD]");
+    }
+
+    /**
+     * Set 138-1 (HOMELAB-130): 900 USD price, 4.99 USD PayPal fee and 111.95 CAD shipping from Canada, paid as
+     * 987.27 USD at PayPal's 1 USD = 1.3606 CAD.
+     */
+    @Test
+    void acceptsAPurchaseFromCanadaWithShippingInCad() {
+        AddItemInventoryRequest request = validRequest();
+        request.getInventoryItems().getFirst().getCosts().getFirst().setAmount(new BigDecimal("900.00"));
+        CostRequest shipping = cost("SHIPPING");
+        shipping.setAmount(new BigDecimal("111.95"));
+        shipping.setCurrencyCode("CAD");
+        CostRequest fee = cost("FEE");
+        fee.setAmount(new BigDecimal("4.99"));
+        request.setCosts(List.of(shipping, fee));
+        PaymentRequest payment = request.getPayments().getFirst();
+        payment.setSellerCurrencyCode("CAD");
+        payment.setExchangeRate(new BigDecimal("1.3606"));
+        payment.setAmount(new BigDecimal("987.27"));
+
+        assertThatCode(() -> validator.validate(request)).doesNotThrowAnyException();
     }
 
     @Test

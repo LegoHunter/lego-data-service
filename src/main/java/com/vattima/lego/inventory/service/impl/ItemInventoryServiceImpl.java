@@ -1,6 +1,7 @@
 package com.vattima.lego.inventory.service.impl;
 
 import com.vattima.lego.inventory.service.validation.SeedSourceIntakeGuard;
+import com.vattima.lego.inventory.service.validation.TransactionCurrencyRules;
 import io.legohunter.data.dao.ItemInventorySeedSourceDao;
 import io.legohunter.data.dto.ItemInventorySeedSource;
 import com.vattima.lego.inventory.service.api.ItemInventoryService;
@@ -63,7 +64,6 @@ import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static io.legohunter.data.dto.ExternalService.Service.BRICKLINK;
@@ -485,27 +485,19 @@ public class ItemInventoryServiceImpl implements ItemInventoryService {
                 .paymentDate(paymentRequest.getPaymentDate())
                 .currencyCode(paymentRequest.getCurrencyCode())
                 .sellerCurrencyCode(paymentRequest.getSellerCurrencyCode())
-                .exchangeRate(resolveExchangeRate(paymentRequest))
+                .exchangeRate(paymentRequest.getExchangeRate())
                 .amount(paymentRequest.getAmount())
                 .paymentPlatformId(paymentPlatform.getPaymentPlatformId())
                 .paymentPlatformTransactionId(paymentRequest.getPaymentPlatformTransactionId())
                 .build();
     }
 
+    /** The rate is never filled in for the caller: 1 for one currency must be sent too (HOMELAB-130). */
     private void validatePaymentExchangeRate(PaymentRequest paymentRequest) {
-        if (paymentRequest.getExchangeRate() == null
-                && paymentRequest.getCurrencyCode() != null
-                && paymentRequest.getSellerCurrencyCode() != null
-                && !paymentRequest.getCurrencyCode().equals(paymentRequest.getSellerCurrencyCode())) {
-            throw new ValidationException("exchangeRate is required when currencyCode and sellerCurrencyCode differ");
+        if (paymentRequest.getExchangeRate() == null) {
+            throw new ValidationException("exchangeRate is required on every payment: 1 when the transaction uses "
+                    + "one currency, otherwise the units of the other currency per 1 USD");
         }
-    }
-
-    private BigDecimal resolveExchangeRate(PaymentRequest paymentRequest) {
-        if (paymentRequest.getExchangeRate() != null) {
-            return paymentRequest.getExchangeRate();
-        }
-        return BigDecimal.ONE.setScale(5);
     }
 
     private AddItemInventoryResponse readBackTransactionTree(Long transactionId) {
@@ -659,38 +651,17 @@ public class ItemInventoryServiceImpl implements ItemInventoryService {
         if (payments.isEmpty()) {
             throw new ValidationException("At least one payment is required");
         }
-        validateSingleCurrency(transactionCosts, itemCosts, payments);
-
-        BigDecimal totalCosts = Stream.concat(
-                        transactionCosts.stream().map(cost -> BigDecimal.valueOf(cost.getAmount())),
-                        itemCosts.stream().map(cost -> BigDecimal.valueOf(cost.getAmount()))
-                )
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalPayments = payments.stream()
-                .map(Payment::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        if (totalCosts.compareTo(totalPayments) != 0) {
-            throw new ValidationException("Total payments must equal total costs. costs="
-                    + totalCosts + ", payments=" + totalPayments);
-        }
-    }
-
-    private void validateSingleCurrency(List<TransactionCost> transactionCosts, List<TransactionItemCost> itemCosts, List<Payment> payments) {
-        List<String> currencies = Stream.of(
-                        transactionCosts.stream()
-                                .map(TransactionCost::getCurrencyCode)
-                                .filter(Objects::nonNull)
-                                .map(Enum::name),
-                        itemCosts.stream().map(TransactionItemCost::getCurrencyCode),
-                        payments.stream().map(Payment::getCurrencyCode)
-                )
-                .flatMap(Function.identity())
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        if (currencies.size() > 1) {
-            throw new ValidationException("All costs and payments in a transaction must use the same currencyCode: " + currencies);
-        }
+        TransactionCurrencyRules.validate(
+                Stream.concat(
+                                transactionCosts.stream().map(cost -> new TransactionCurrencyRules.CostLine(
+                                        cost.getCurrencyCode() == null ? null : cost.getCurrencyCode().name(),
+                                        BigDecimal.valueOf(cost.getAmount()))),
+                                itemCosts.stream().map(cost -> new TransactionCurrencyRules.CostLine(
+                                        cost.getCurrencyCode(), BigDecimal.valueOf(cost.getAmount()))))
+                        .toList(),
+                payments.stream()
+                        .map(payment -> new TransactionCurrencyRules.PaymentLine(payment.getCurrencyCode(),
+                                payment.getSellerCurrencyCode(), payment.getExchangeRate(), payment.getAmount()))
+                        .toList());
     }
 }
