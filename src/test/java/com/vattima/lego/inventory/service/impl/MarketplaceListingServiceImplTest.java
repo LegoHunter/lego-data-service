@@ -980,13 +980,14 @@ class MarketplaceListingServiceImplTest {
         when(externalImageAlbumDao.findByExternalServiceIdAndItemInventoryId(10, 202)).thenReturn(Optional.of(
                 ExternalImageAlbum.builder().albumUrl("https://www.flickr.com/photos/u/sets/1/").build()));
         when(itemInventoryPhotoDao.findProcessedCaptionsByItemInventoryId(202)).thenReturn(List.of("Small mark."));
+        when(itemInventoryPhotoDao.countProcessedByItemInventoryId(202)).thenReturn(6);
         MarketplaceListing listing = MarketplaceListing.builder().itemInventoryId(202).title("Test Car").build();
 
         assertThat(service.lotDescription(listing).text())
-                .isEqualTo("Test Car. <a href=\"https://www.flickr.com/photos/u/sets/1/\">View all photos</a>.");
+                .isEqualTo("Test Car. Visit https://www.flickr.com/photos/u/sets/1/ to see 6 photos.");
         properties.setExtendedDescriptionSync(true);
         assertThat(service.lotDescription(listing).text())
-                .endsWith("</a>. See Extended Description for additional Item Condition notes.");
+                .endsWith(" to see 6 photos. See Extended Description for additional Item Condition notes.");
     }
 
     @Test

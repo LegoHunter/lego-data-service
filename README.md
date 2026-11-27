@@ -61,7 +61,9 @@ Phase 2 correction rules:
 
 - Total payments must equal total transaction costs after every committed intake or correction.
 - Total transaction costs include all transaction-level costs plus all transaction-item costs.
-- All costs and payments in a transaction must use the same `currencyCode`.
+- A transaction uses one currency, or two: USD and the other party's (HOMELAB-130). Every cost's and payment's `currencyCode` and every payment's `sellerCurrencyCode` count; a third currency, or two without USD, is rejected.
+- Every payment carries `exchangeRate`; the service never fills it in. With one currency it must be `1`. With two it is the units of the other currency per 1 USD (PayPal's "1 USD = 1.3606 CAD" is `1.3606`), and all payments in the transaction share it.
+- With two currencies the payments-equal-costs check converts both sides to USD and allows one cent per converted line for rounding.
 - Transaction-level costs must not use `PRICE`; `PRICE` belongs on each transaction item.
 - Each transaction item must have exactly one item-level `PRICE` cost.
 - Cost/payment corrections are intentionally row-scoped add/update/delete operations.

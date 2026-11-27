@@ -278,28 +278,26 @@ class ItemInventoryServiceImplTest {
     }
 
     @Test
-    void addItemInventoryDefaultsSameCurrencyPaymentExchangeRate() {
+    void addItemInventoryRejectsAMissingSameCurrencyExchangeRateInsteadOfDefaultingIt() {
         AddItemInventoryRequest request = acquisitionRequest();
         request.getPayments().getFirst().setExchangeRate(null);
-        stubThroughPaymentConversion();
 
-        service.addItemInventory(request);
+        assertThatThrownBy(() -> service.addItemInventory(request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageStartingWith("exchangeRate is required on every payment");
 
-        ArgumentCaptor<List<Payment>> paymentCaptor = ArgumentCaptor.captor();
-        verify(paymentDao).setTransactionPayments(org.mockito.ArgumentMatchers.eq(101L), paymentCaptor.capture());
-        assertThat(paymentCaptor.getValue()).singleElement()
-                .satisfies(payment -> assertThat(payment.getExchangeRate()).isEqualByComparingTo("1.00000"));
+        verifyNoInteractions(transactionsDao, itemInventoryDao, paymentDao, transactionCostDao);
     }
 
     @Test
-    void addItemInventoryRejectsMissingCrossCurrencyExchangeRateBeforeAnyWrites() {
+    void addItemInventoryRejectsMissingExchangeRateBeforeAnyWrites() {
         AddItemInventoryRequest request = acquisitionRequest();
         request.getPayments().getFirst().setSellerCurrencyCode("EUR");
         request.getPayments().getFirst().setExchangeRate(null);
 
         assertThatThrownBy(() -> service.addItemInventory(request))
                 .isInstanceOf(ValidationException.class)
-                .hasMessage("exchangeRate is required when currencyCode and sellerCurrencyCode differ");
+                .hasMessageStartingWith("exchangeRate is required on every payment");
 
         verifyNoInteractions(transactionsDao, itemInventoryDao, paymentDao, transactionCostDao);
     }
@@ -639,6 +637,32 @@ class ItemInventoryServiceImplTest {
         assertThat(response.getTransaction()).isSameAs(transaction);
     }
 
+    /** A correction on the 138-1 purchase from Canada keeps passing the converted totals check (HOMELAB-130). */
+    @Test
+    void addTransactionCostAcceptsATwoCurrencyTransactionThatStillBalancesInUsd() {
+        Transactions transaction = Transactions.builder().transactionId(101L).build();
+        TransactionItem transactionItem = TransactionItem.builder().transactionItemId(303L).transactionId(101L).itemInventoryId(202).build();
+        ItemInventory inventory = new ItemInventory();
+        inventory.setItemInventoryId(202);
+        TransactionCost shippingCad = transactionCost("SHIPPING", "111.95");
+        shippingCad.setCurrencyCode(CurrencyCode.CAD);
+        Payment paymentUsd = payment("987.27000");
+        paymentUsd.setSellerCurrencyCode("CAD");
+        paymentUsd.setExchangeRate(new BigDecimal("1.36060"));
+        when(transactionsDao.findById(101L)).thenReturn(Optional.of(transaction));
+        when(transactionCostDao.findByTransactionIdAndCostTypeCode(101L, "FEE")).thenReturn(Optional.empty());
+        when(transactionCostDao.findByTransactionId(101L)).thenReturn(List.of(shippingCad, transactionCost("FEE", "4.99")));
+        when(transactionItemDao.findByTransactionId(101L)).thenReturn(List.of(transactionItem));
+        when(transactionCostDao.findByTransactionItemId(303L)).thenReturn(List.of(transactionItemCost(303L, "PRICE", "900.00")));
+        when(paymentDao.findByTransactionId(101L)).thenReturn(List.of(paymentUsd));
+        when(itemInventoryDao.findByItemInventoryId(202)).thenReturn(Optional.of(inventory));
+        when(itemInventoryExternalCatalogItemDao.findByItemInventoryId(202)).thenReturn(Set.of());
+
+        service.addTransactionCost(101L, cost("FEE", "4.99", "PayPal fee"));
+
+        verify(transactionCostDao).insert(any(TransactionCost.class));
+    }
+
     @Test
     void addTransactionCostRejectsDuplicateCostType() {
         when(transactionsDao.findById(101L)).thenReturn(Optional.of(Transactions.builder().transactionId(101L).build()));
@@ -651,7 +675,7 @@ class ItemInventoryServiceImplTest {
     }
 
     @Test
-    void addPaymentRejectsMissingExchangeRateForCrossCurrencyPayment() {
+    void addPaymentRejectsMissingExchangeRate() {
         when(transactionsDao.findById(101L)).thenReturn(Optional.of(Transactions.builder().transactionId(101L).build()));
         PaymentRequest request = paymentRequest("112.49");
         request.setSellerCurrencyCode("EUR");
@@ -659,7 +683,7 @@ class ItemInventoryServiceImplTest {
 
         assertThatThrownBy(() -> service.addPayment(101L, request))
                 .isInstanceOf(ValidationException.class)
-                .hasMessage("exchangeRate is required when currencyCode and sellerCurrencyCode differ");
+                .hasMessageStartingWith("exchangeRate is required on every payment");
 
         verifyNoInteractions(paymentDao);
     }
